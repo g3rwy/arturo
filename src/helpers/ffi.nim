@@ -56,13 +56,12 @@ when not defined(WEB):
     # Methods
     #=======================================
 
-    proc execForeignMethod*(path: string, meth: string, params: ValueArray = @[], expected: ValueKind = Nothing): Value =
+    proc execForeignMethod*(path: string, meth: string, params: ValueArray = @[], expected: Value = nil): Value =
         try:
             #TODO add another attribute to set if it uses 32-bit sizes or 64-bit sizes
             #TODO Have some kind of check if struct is one element? Cause it might not work
             # set result to :null
             result = VNULL
-
             # load library
             
             let resolvedPath = resolveLibrary(path)
@@ -70,7 +69,13 @@ when not defined(WEB):
 
             # the variable that will store 
             # the return value from the function
-            
+            let expectedType: ValueKind = 
+                if expected.isNil:
+                    Nothing
+                else:
+                    expected.t
+
+
             # execute given method
             # depending on the params given
             var struct_elements : array[0..2, ptr Type]
@@ -138,7 +143,7 @@ when not defined(WEB):
                 return_struct : array[0..63,uint8]
                 return_pointer: pointer
 
-            case expected:
+            case expectedType:
                 of Integer:
                     return_type = type_sint64.addr
                 of Floating:
@@ -146,54 +151,44 @@ when not defined(WEB):
                 of Logical:
                     return_type = type_sint8.addr
                 of String:
-                    return_type = type_pointer.addr
-                of Nothing:
-                    return_type = type_void.addr
+                    return_type = type_pointer.addr        
                 of Object:
                     return_type = type_structV2.addr
+                of Nothing:
+                    return_type = type_void.addr
                 else:
                     discard
+                
 
             if OK != prep_cif(cif, DEFAULT_ABI, params.len.cuint , return_type, params_cif):
                 echo "Something went wrong with preparing the statement"
                 quit 1
-
-            case expected:
+            
+            case expectedType:
                 of Integer:
                     call(cif, fun, return_int.addr, args)
+                    result = newInteger(return_int)
                 of Floating:
                     call(cif, fun, return_float.addr, args)
+                    result = newFloating(return_float)
                 of Logical:
                     call(cif, fun, return_logical.addr, args)
+                    result = newLogical(return_logical)
                 of String:
                     call(cif, fun, return_string.addr, args)
+                    result = newString(return_string)
                 of Nothing:
                     call(cif, fun, nil, args)
                 of Object:
                     call(cif, fun, return_struct.addr, args)
-                else:
-                    discard
-
-            case expected
-                of Logical:
-                    result = newLogical(return_logical)
-
-                of Integer:
-                    result = newInteger(return_int)
-                
-                of Floating:
-                    result = newFloating(return_float)
-
-                of String:
-                    result = newString(return_string)
-                of Object:
                     let f1 = cast[ptr float32](return_struct.addr)
                     result = newBlock( @[ newFloating(f1[]) ,newFloating(cast[ptr float32](cast[uint](f1) + 4)[] ) ] )
-                else: discard
+                else:
+                    discard
+            
             # unload the library
             
             unloadLibrary(lib)
-            echo "unloaded ", meth
         
         except VMError as e:
             raise e

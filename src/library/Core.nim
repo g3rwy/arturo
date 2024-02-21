@@ -183,9 +183,9 @@ proc defineLibrary*() =
                 when not defined(WEB):
                     let externalLibrary = aExternal.s
 
-                    var expected = Nothing
+                    var expected: Value = nil
                     if checkAttr("expect"):
-                        expected = aExpect.t
+                        expected = aExpect
 
                     push(execForeignMethod(externalLibrary, x.s, y.a, expected))
             else:
