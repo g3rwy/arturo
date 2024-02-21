@@ -14,8 +14,8 @@ when not defined(WEB):
     #=======================================
     # Libraries
     #=======================================
-
-    import dynlib, os, strutils
+    # WARNING TODO IMPORTANT !!! figure out how to import "objects" without issues
+    import dynlib, os, strutils, libffi, objects
 
     import vm/[errors, values/value]
 
@@ -27,21 +27,6 @@ when not defined(WEB):
 
     # The most stupid hack of the century
     # but it kinda works - better than nothing!
-
-    type
-        V_Caller*      = proc():pointer                         {.nimcall.}
-        I_Caller*      = proc(a: int):pointer                   {.nimcall.}
-        F_Caller*      = proc(a: float):pointer                 {.nimcall.}
-        S_Caller*      = proc(a: cstring):pointer               {.nimcall.}
-        II_Caller*     = proc(a: int, b:int):pointer            {.nimcall.}
-        IF_Caller*     = proc(a: int, b: float):pointer         {.nimcall.}
-        IS_Caller*     = proc(a: int, b:cstring):pointer        {.nimcall.}
-        FI_Caller*     = proc(a: float, b:int):pointer          {.nimcall.}
-        FF_Caller*     = proc(a: float, b:float):pointer        {.nimcall.}
-        FS_Caller*     = proc(a: float, b:cstring):pointer      {.nimcall.}
-        SI_Caller*     = proc(a: cstring, b:int):pointer        {.nimcall.}
-        SF_Caller*     = proc(a: cstring, b:float):pointer      {.nimcall.}
-        SS_Caller*     = proc(a: cstring, b:cstring):pointer    {.nimcall.}
 
     #=======================================
     # Helpers
@@ -60,21 +45,6 @@ when not defined(WEB):
         if r == nil:
             RuntimeError_LibrarySymbolNotFound(resolvedPath, meth)
 
-    template callFunc0(t:untyped):untyped =
-        let runner = cast[t](lib.symAddr(meth))
-        checkRunner(runner)
-        runner()
-
-    template callFunc1(t:untyped, arg1:untyped):untyped =
-        let runner = cast[t](lib.symAddr(meth))
-        checkRunner(runner)
-        runner(arg1)
-
-    template callFunc2(t:untyped, arg1:untyped, arg2:untyped):untyped =
-        let runner = cast[t](lib.symAddr(meth))
-        checkRunner(runner)
-        runner(arg1,arg2)
-
     func resolveLibrary*(path: string): string =
         let (_, _, extension) = splitFile(path)
         if extension != "":
@@ -82,95 +52,152 @@ when not defined(WEB):
         else:
             result = DynlibFormat % [path]
 
-    func boolToInt*(v: Value): int =
-        if isTrue(v): result = 1
-        else: result = 0
-
     #=======================================
     # Methods
     #=======================================
 
     proc execForeignMethod*(path: string, meth: string, params: ValueArray = @[], expected: ValueKind = Nothing): Value =
         try:
+            #TODO add another attribute to set if it uses 32-bit sizes or 64-bit sizes
+            #TODO Have some kind of check if struct is one element? Cause it might not work
             # set result to :null
             result = VNULL
 
             # load library
+            
             let resolvedPath = resolveLibrary(path)
             let lib = loadLibrary(resolvedPath)
 
             # the variable that will store 
             # the return value from the function
-            var got: pointer
-
+            
             # execute given method
             # depending on the params given
+            var struct_elements : array[0..2, ptr Type]
+            struct_elements[0] = type_float.addr
+            struct_elements[1] = type_float.addr
 
-            if params.len==0:
-                got = callFunc0(V_Caller)
-            elif params.len==1:
-                case params[0].kind
-                    of Logical      :   got = callFunc1(I_Caller, boolToInt(params[0]))
-                    of Integer      :   got = callFunc1(I_Caller, params[0].i)
-                    of Floating     :   got = callFunc1(F_Caller, params[0].f)
-                    of String       :   got = callFunc1(S_Caller, cstring(params[0].s))
-                    else: discard
-            elif params.len==2:
-                case params[0].kind
-                    of Logical: 
-                        case params[1].kind
-                            of Logical      :   got = callFunc2(II_Caller, boolToInt(params[0]), boolToInt(params[1]))
-                            of Integer      :   got = callFunc2(II_Caller, boolToInt(params[0]), params[1].i)
-                            of Floating     :   got = callFunc2(IF_Caller, boolToInt(params[0]), params[1].f)
-                            of String       :   got = callFunc2(IS_Caller, boolToInt(params[0]), cstring(params[1].s))
-                            else: discard
-                    of Integer: 
-                        case params[1].kind
-                            of Logical      :   got = callFunc2(II_Caller, params[0].i, boolToInt(params[1]))
-                            of Integer      :   got = callFunc2(II_Caller, params[0].i, params[1].i)
-                            of Floating     :   got = callFunc2(IF_Caller, params[0].i, params[1].f)
-                            of String       :   got = callFunc2(IS_Caller, params[0].i, cstring(params[1].s))
-                            else: discard
+            var type_structV2 : Type = libffi.Type(size: 4 * 2, alignment: 8, typ: tkSTRUCT, elements: cast[ptr ptr Type](struct_elements.addr) )
+
+            var fun = lib.symAddr(meth)
+            var
+                cif: TCif
+                params_cif: ParamList
+                args: ArgList
+                bool_values   : seq[int]
+                string_values : seq[cstring]
+                float_values  : seq[float32]
+                struct_values : seq[array[0..63, uint8]] # 64-byte array to be used as struct
+            
+            for i,p in params.pairs:
+                case p.kind:
+                    of Integer:
+                        params_cif[i] = type_sint64.addr
+                        args[i] = params[i].i.addr
                     of Floating:
-                        case params[1].kind
-                            of Logical      :   got = callFunc2(FI_Caller, params[0].f, boolToInt(params[1]))
-                            of Integer      :   got = callFunc2(FI_Caller, params[0].f, params[1].i)
-                            of Floating     :   got = callFunc2(FF_Caller, params[0].f, params[1].f)
-                            of String       :   got = callFunc2(FS_Caller, params[0].f, cstring(params[1].s))
-                            else: discard
-                    of String: 
-                        case params[1].kind
-                            of Logical      :   got = callFunc2(SI_Caller, cstring(params[0].s), boolToInt(params[1]))
-                            of Integer      :   got = callFunc2(SI_Caller, cstring(params[0].s), params[1].i)
-                            of Floating     :   got = callFunc2(SF_Caller, cstring(params[0].s), params[1].f)
-                            of String       :   got = callFunc2(SS_Caller, cstring(params[0].s), cstring(params[1].s))
-                            else: discard
-                    else: discard
-            else: discard
+                        params_cif[i] = type_float.addr
+                        float_values.add(params[i].f.float32)
+                        args[i] = float_values[float_values.high].addr
+                    of Logical:
+                        params_cif[i] = type_sint8.addr
+                        if params[i].isTrue: # TODO add maybe if possible
+                            bool_values.add(1)
+                            args[i] = bool_values[bool_values.high].addr
+                        else:
+                            bool_values.add(0)
+                            args[i] = bool_values[bool_values.high].addr
+                    of String:
+                        params_cif[i] = type_pointer.addr
+                        string_values.add(cstring(params[i].s))
+                        args[i] = string_values[string_values.high].addr
+                    of Object:
+                        params_cif[i] = type_structV2.addr
+                        var buffer : array[0..63, uint8] # Fake 64byte struct
+                        var idx = 0
+                        for value in params[i].o.objectValues:
+                            case value.kind:
+                                of Floating: # If its 64-bit, considering padding, struct should be padded to the biggest size in field
+                                    let tmp = value.f.float32
+                                    for b in cast[array[0..3,uint8]](tmp):
+                                        buffer[idx] = b
+                                        inc idx 
+                                else:
+                                    echo "Not Implemented"
+                                    discard
+                        struct_values.add(buffer) # make sure its pased by value and not by reference, clone it
+                        args[i] = struct_values[struct_values.high].addr
+                    else:
+                        discard
 
-            # convert returned value
-            # depending on what's expected
+            var return_type: ptr Type 
+            var # A temporary solution, might be better to have one variable of biggest type and then unsafely cast it
+                return_int    : int
+                return_float  : float32
+                return_logical: int
+                return_string : cstring
+                return_struct : array[0..63,uint8]
+                return_pointer: pointer
+
+            case expected:
+                of Integer:
+                    return_type = type_sint64.addr
+                of Floating:
+                    return_type = type_float.addr
+                of Logical:
+                    return_type = type_sint8.addr
+                of String:
+                    return_type = type_pointer.addr
+                of Nothing:
+                    return_type = type_void.addr
+                of Object:
+                    return_type = type_structV2.addr
+                else:
+                    discard
+
+            if OK != prep_cif(cif, DEFAULT_ABI, params.len.cuint , return_type, params_cif):
+                echo "Something went wrong with preparing the statement"
+                quit 1
+
+            case expected:
+                of Integer:
+                    call(cif, fun, return_int.addr, args)
+                of Floating:
+                    call(cif, fun, return_float.addr, args)
+                of Logical:
+                    call(cif, fun, return_logical.addr, args)
+                of String:
+                    call(cif, fun, return_string.addr, args)
+                of Nothing:
+                    call(cif, fun, nil, args)
+                of Object:
+                    call(cif, fun, return_struct.addr, args)
+                else:
+                    discard
 
             case expected
                 of Logical:
-                    result = newLogical(cast[int](got))
+                    result = newLogical(return_logical)
 
                 of Integer:
-                    result = newInteger(cast[int](got))
+                    result = newInteger(return_int)
                 
                 of Floating:
-                    result = newFloating(cast[float](got))
+                    result = newFloating(return_float)
 
                 of String:
-                    result = newString(cast[cstring](got))
-
+                    result = newString(return_string)
+                of Object:
+                    let f1 = cast[ptr float32](return_struct.addr)
+                    result = newBlock( @[ newFloating(f1[]) ,newFloating(cast[ptr float32](cast[uint](f1) + 4)[] ) ] )
                 else: discard
-
             # unload the library
+            
             unloadLibrary(lib)
-
+            echo "unloaded ", meth
+        
         except VMError as e:
             raise e
 
         except CatchableError:
             RuntimeError_ErrorLoadingLibrarySymbol(path, meth)
+    
