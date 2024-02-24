@@ -18,6 +18,7 @@ import helpers/strings
 
 
 import vm/[errors, values/value]
+import std/dynlib # added by morshy
 
 #=======================================
 # Globals
@@ -52,9 +53,14 @@ var
     # global configuration
     Config* {.global.}      : Value                 ## The global configuration store
 
+    CachedFFILibs* {.global.}: Table[string, LibHandle]
 #=======================================
 # Helpers
 #=======================================
+proc unloadCachedFFILibs*() =
+    echo "----------------unloading libs--------------------" 
+    for lib in CachedFFILibs.values:
+        unloadLib(lib)
 
 func suggestAlternative(s: string, reference: SymTable | ValueDict = Syms): seq[string] {.inline.} =
     var levs = initOrderedTable[string,float]()

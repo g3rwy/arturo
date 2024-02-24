@@ -1,0 +1,167 @@
+define :cfloat   [ value :floating ]
+define :cdouble  [ value :floating ]
+define :cldouble [ value :floating ]
+;TODO checking if this new plugin works :cin32
+define :cint64   [ value :integer ]
+define :cint32   [ value :integer ]
+define :cint16   [ value :integer ]
+define :cint8    [ value :integer ]
+
+define :cuint64  [ value :integer ]
+define :cuint32  [ value :integer ]
+define :cuint16  [ value :integer ]
+define :cuint8   [ value :integer ]
+define :cpointer [ value :integer ]
+define :cstring  [ value :string  ]
+
+define :cvoid    [ ] 
+
+define :Vector2 [x :cfloat, y :cfloat]
+define :rayColor [r :cuint8, g :cuint8, b :cuint8, a :cuint8]
+
+
+InitWindow: $[width :cint32,height :cint32, title :cstring] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect:   :cvoid
+        'InitWindow @[width height title]
+]
+CloseWindow: $[ ] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect:   :cvoid
+        'CloseWindow @[]
+]
+WindowShouldClose: $[ ] [
+    call .external: "/usr/lib/libraylib.so" ;"/home/mihau/projects/arturo_experiments/arturo/arturolib.so"
+        .expect:   :cuint8
+        'WindowShouldClose @[]
+]
+
+BeginDrawing: $[ ] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect:   :cvoid
+        'BeginDrawing @[]
+]
+EndDrawing: $[ ] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect:   :cvoid
+        'EndDrawing @[]
+]
+
+ClearBackground: $[color :rayColor] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect:   :cvoid
+        'ClearBackground @[color]
+]
+
+DrawText: $[text :cstring, posX :cint32, posY :cint32, fontSize :cint32, color :rayColor] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect:   :cvoid
+        'DrawText @[text posX posY fontSize color]
+]
+
+GetTime: $[] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect:   :cdouble
+        'GetTime @[]
+]
+
+SetWindowTitle: $[title :cstring] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect:   :cvoid
+        'SetWindowTitle @[title]
+]
+
+GetScreenWidth: $[] [
+    call .external: "/usr/lib/libraylib.so"
+    .expect:   :cint32
+    'GetScreenWidth @[]
+]
+
+IsWindowReady: $[ ] [
+    call .external: "/usr/lib/libraylib.so" ;"/home/mihau/projects/arturo_experiments/arturo/arturolib.so"
+        .expect:   :cuint8
+        'IsWindowReady @[]
+]
+GetRandomValue: $[ min :cint32 , max :cint32 ] [
+    call .external: "/usr/lib/libraylib.so" ;"/home/mihau/projects/arturo_experiments/arturo/arturolib.so"
+        .expect:   :cint32
+        'GetRandomValue @[min max]
+]
+SetTargetFPS: $[ fps :cint32 ] [
+    call .external: "/usr/lib/libraylib.so" ;"/home/mihau/projects/arturo_experiments/arturo/arturolib.so"
+        .expect:   :cvoid
+        'SetTargetFPS @[fps]
+]
+;void DrawCircle(int centerX, int centerY, float radius, Color color);  
+DrawCircle: $[ centerX :cint32, centerY :cint32, radius :cfloat, color :rayColor ] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :cvoid
+        'DrawCircle @[centerX centerY radius color]
+]
+
+IsKeyPressed: $[ key :cint32 ][
+    call .external "/usr/lib/libraylib.so"
+        .expect: :cuint8
+        'IsKeyPressed @[key]
+]
+
+InitWindow to :cint32 [800] to :cint32 [450] to :cstring ["Basic Window from arturo"]
+SetTargetFPS to :cint32 [60]
+
+backgroundcolor: to :rayColor [ to :cuint8 [245] to :cuint8 [245] to :cuint8 [245] to :cuint8 [255]]
+fontcolor: to :rayColor [ to :cuint8 [120] to :cuint8 [120] to :cuint8 [120] to :cuint8 [255]]
+
+KEY_Q: to :cint32 [81]
+
+posX: 50
+print IsKeyPressed KEY_Q
+
+if? [ IsWindowReady == 1] [
+    print "LOG: Window initalized correctly"
+    once: true
+    while [ WindowShouldClose == 0 ] [
+
+        BeginDrawing
+        ;print GetRandomValue to :cint32 [0] to :cint32 [42]
+        ClearBackground backgroundcolor
+        ;print "hmm?"
+;DrawText: $[text :cstring, posX :cint32, posY :cint32, fontSize :cint32, color :rayColor] [
+        ;DrawText to :cstring ["Hello in raylib from Arturo!"] to :cint32 [190] to :cint32 [200] to :cint32 [20] fontcolor
+        DrawCircle to :cint32 [posX] to :cint32 [50] to :cfloat [50.0] fontcolor
+        
+        EndDrawing
+        posX: posX + 10
+        print posX
+        ;print IsKeyPressed to :cint32 [81]
+        close_window: 0;IsKeyPressed 
+        
+        if close_window = 1 [
+            
+            break
+        ]
+        ;print GetScreenWidth
+    ]
+    CloseWindow
+]
+
+else [
+    print "WARN: Something went wrong"
+]
+
+
+;int main(void)
+;{
+;    InitWindow(800, 450, "raylib [core] example - basic window");
+;
+;    while (!WindowShouldClose())
+;    {
+;        BeginDrawing();
+;            ClearBackground(RAYWHITE);
+;            DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
+;        EndDrawing();
+;    }
+;
+;    CloseWindow();
+;
+;    return 0;
+;}

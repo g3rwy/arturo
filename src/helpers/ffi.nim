@@ -14,15 +14,16 @@ when not defined(WEB):
     #=======================================
     # Libraries
     #=======================================
-    # WARNING TODO IMPORTANT !!! figure out how to import "objects" without issues
+    
     import dynlib, os, strutils, libffi, tables
 
     import vm/[errors, values/value]
-
+    import vm/globals
     #import vm/values/custom/[vlogical]
 
+    
     #=======================================
-    # Types
+    # List of libraries
     #=======================================
 
     # The most stupid hack of the century
@@ -33,13 +34,10 @@ when not defined(WEB):
     #=======================================
 
     proc loadLibrary*(path: string): LibHandle =
-        result = loadLib(path)
+        result = loadLib(path, true)
 
         if result == nil:
             RuntimeError_LibraryNotLoaded(path)
-
-    proc unloadLibrary*(lib: LibHandle) =
-        unloadLib(lib)
 
     template checkRunner*(r: pointer):untyped =
         if r == nil:
@@ -100,7 +98,8 @@ when not defined(WEB):
     #=======================================
     # Methods
     #=======================================
-    import "vm/globals.nim"
+    #var CachedFFILibs : Table[string, LibHandle]
+
     proc execForeignMethod*(path: string, meth: string, params: ValueArray = @[], expected: Value = nil): Value =
         try:
             #TODO Have some kind of check if struct is one element? Cause it might not work
@@ -108,8 +107,15 @@ when not defined(WEB):
             result = VNULL
 
             # load library
-            let resolvedPath = resolveLibrary(path)
-            let lib = loadLibrary(resolvedPath)
+            var fun : pointer = nil
+            if path in CachedFFILibs:
+                let lib = CachedFFILibs[path]
+                fun = lib.symAddr(meth)
+            else:
+                let resolvedPath = resolveLibrary(path)
+                let lib = loadLibrary(resolvedPath)
+                CachedFFILibs[path] = lib
+                fun = lib.symAddr(meth)
 
 
             # If expected value is nil then  
@@ -185,9 +191,7 @@ when not defined(WEB):
                         structs_elements.add(buffer)
                         return_struct_type = libffi.Type(size: full_size, alignment: max_size.uint16 , typ: tkSTRUCT, elements: cast[ptr ptr Type](structs_elements[0].addr))
              
-            var fun = lib.symAddr(meth)
-
-            for i,p in params.pairs: 
+            for i,p in params.pairs:
                 case p.kind:
                     of Object:
                             let type_name = params[i].proto.name
@@ -234,7 +238,6 @@ when not defined(WEB):
                                 for value in params[i].o.values:
                                     #echo value.kind
                                     if value.kind != Method:
-                                        echo value.proto.name
                                 # ------- Defining struct layout and type
                                         let size = returnTypeSize(value.proto.name)
                                         types[value.proto.name] = size
@@ -305,11 +308,11 @@ when not defined(WEB):
 
                         discard
             
-
+            #echo args.repr
             var return_type: ptr Type 
             var # A temporary solution, might be better to have one variable of biggest type and then unsafely cast it
                 return_int    : int
-                return_float  : float32 
+                return_float  : float # FIXME make it either float or float32
                 return_logical: int
                 return_string : cstring
                 return_struct : array[0..63,uint8]
@@ -336,7 +339,8 @@ when not defined(WEB):
                     result = newInteger(return_int)
                 of Floating:
                     call(cif, fun, return_float.addr, args)
-                    result = newFloating(return_float)
+                    result = if expected.tid == "cdouble": newFloating(return_float)
+                    else:                                  newFloating(cast[float32](return_float))
                 of Logical:
                     call(cif, fun, return_logical.addr, args)
                     result = newLogical(return_logical)
@@ -345,7 +349,7 @@ when not defined(WEB):
                     result = newString(return_string)
                 of Nothing:
                     call(cif, fun, nil, args)
-                
+                    result = VNULL
                 of Object:
                     call(cif, fun, return_struct.addr, args)
                     var result_block : seq[Value]
@@ -370,11 +374,12 @@ when not defined(WEB):
                 else:
                     discard
             
-            unloadLibrary(lib)
+            #unloadLibrary(lib)
         
         except VMError as e:
             raise e
 
         except CatchableError:
+            unloadCachedFFILibs()
             RuntimeError_ErrorLoadingLibrarySymbol(path, meth)
     

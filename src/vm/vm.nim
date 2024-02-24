@@ -112,7 +112,6 @@ importLib "Ui"
 
 var
     initialized     : bool = false
-
 #=======================================
 # Helpers
 #=======================================
@@ -188,12 +187,14 @@ template initialize(args: seq[string], filename: string, isFile:bool, scriptData
 template handleVMErrors(blk: untyped): untyped =
     try:
         blk
+        unloadCachedFFILibs()
     except CatchableError, Defect:
         let e = getCurrentException()        
         showVMErrors(e)
 
         when not defined(WEB):
             savePendingStores()
+            unloadCachedFFILibs()
 
         if e.name == $(ProgramError):
             let code = parseInt(e.msg.split(";;")[1].split("<:>")[0])
