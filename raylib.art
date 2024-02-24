@@ -19,6 +19,113 @@ define :cvoid    [ ]
 define :Vector2 [x :cfloat, y :cfloat]
 define :rayColor [r :cuint8, g :cuint8, b :cuint8, a :cuint8]
 
+KEY_NULL:           to :cint32 [0]
+KEY_APOSTROPHE:     to :cint32 [39]
+KEY_COMMA:          to :cint32 [44]
+KEY_MINUS:          to :cint32 [45]
+KEY_PERIOD:         to :cint32 [46]
+KEY_SLASH:          to :cint32 [47]
+KEY_ZERO:           to :cint32 [48]
+KEY_ONE:            to :cint32 [49]
+KEY_TWO:            to :cint32 [50]
+KEY_THREE:          to :cint32 [51]
+KEY_FOUR:           to :cint32 [52]
+KEY_FIVE:           to :cint32 [53]
+KEY_SIX:            to :cint32 [54]
+KEY_SEVEN:          to :cint32 [55]
+KEY_EIGHT:          to :cint32 [56]
+KEY_NINE:           to :cint32 [57]
+KEY_SEMICOLON:      to :cint32 [59]
+KEY_EQUAL:          to :cint32 [61]
+KEY_A:              to :cint32 [65]
+KEY_B:              to :cint32 [66]
+KEY_C:              to :cint32 [67]
+KEY_D:              to :cint32 [68]
+KEY_E:              to :cint32 [69]
+KEY_F:              to :cint32 [70]
+KEY_G:              to :cint32 [71]
+KEY_H:              to :cint32 [72]
+KEY_I:              to :cint32 [73]
+KEY_J:              to :cint32 [74]
+KEY_K:              to :cint32 [75]
+KEY_L:              to :cint32 [76]
+KEY_M:              to :cint32 [77]
+KEY_N:              to :cint32 [78]
+KEY_O:              to :cint32 [79]
+KEY_P:              to :cint32 [80]
+KEY_Q:              to :cint32 [81]
+KEY_R:              to :cint32 [82]
+KEY_S:              to :cint32 [83]
+KEY_T:              to :cint32 [84]
+KEY_U:              to :cint32 [85]
+KEY_V:              to :cint32 [86]
+KEY_W:              to :cint32 [87]
+KEY_X:              to :cint32 [88]
+KEY_Y:              to :cint32 [89]
+KEY_Z:              to :cint32 [90]
+KEY_LEFT_BRACKET:   to :cint32 [91]
+KEY_BACKSLASH:      to :cint32 [92]
+KEY_RIGHT_BRACKET:  to :cint32 [93]
+KEY_GRAVE:          to :cint32 [96]
+KEY_SPACE:          to :cint32 [32]
+KEY_ESCAPE:         to :cint32 [256]
+KEY_ENTER:          to :cint32 [257]
+KEY_TAB:            to :cint32 [258]
+KEY_BACKSPACE:      to :cint32 [259]
+KEY_INSERT:         to :cint32 [260]
+KEY_DELETE:         to :cint32 [261]
+KEY_RIGHT:          to :cint32 [262]
+KEY_LEFT:           to :cint32 [263]
+KEY_DOWN:           to :cint32 [264]
+KEY_UP:             to :cint32 [265]
+KEY_PAGE_UP:        to :cint32 [266]
+KEY_PAGE_DOWN:      to :cint32 [267]
+KEY_HOME:           to :cint32 [268]
+KEY_END:            to :cint32 [269]
+KEY_CAPS_LOCK:      to :cint32 [280]
+KEY_SCROLL_LOCK:    to :cint32 [281]
+KEY_NUM_LOCK:       to :cint32 [282]
+KEY_PRINT_SCREEN:   to :cint32 [283]
+KEY_PAUSE:          to :cint32 [284]
+KEY_F1:             to :cint32 [290]
+KEY_F2:             to :cint32 [291]
+KEY_F3:             to :cint32 [292]
+KEY_F4:             to :cint32 [293]
+KEY_F5:             to :cint32 [294]
+KEY_F6:             to :cint32 [295]
+KEY_F7:             to :cint32 [296]
+KEY_F8:             to :cint32 [297]
+KEY_F9:             to :cint32 [298]
+KEY_F10:            to :cint32 [299]
+KEY_F11:            to :cint32 [300]
+KEY_F12:            to :cint32 [301]
+KEY_LEFT_SHIFT:     to :cint32 [340]
+KEY_LEFT_CONTROL:   to :cint32 [341]
+KEY_LEFT_ALT:       to :cint32 [342]
+KEY_LEFT_SUPER:     to :cint32 [343]
+KEY_RIGHT_SHIFT:    to :cint32 [344]
+KEY_RIGHT_CONTROL:  to :cint32 [345]
+KEY_RIGHT_ALT:      to :cint32 [346]
+KEY_RIGHT_SUPER:    to :cint32 [347]
+KEY_KB_MENU:        to :cint32 [348]
+KEY_KP_0:           to :cint32 [320]
+KEY_KP_1:           to :cint32 [321]
+KEY_KP_2:           to :cint32 [322]
+KEY_KP_3:           to :cint32 [323]
+KEY_KP_4:           to :cint32 [324]
+KEY_KP_5:           to :cint32 [325]
+KEY_KP_6:           to :cint32 [326]
+KEY_KP_7:           to :cint32 [327]
+KEY_KP_8:           to :cint32 [328]
+KEY_KP_9:           to :cint32 [329]
+KEY_KP_DECIMAL:     to :cint32 [330]
+KEY_KP_DIVIDE:      to :cint32 [331]
+KEY_KP_MULTIPLY:    to :cint32 [332]
+KEY_KP_SUBTRACT:    to :cint32 [333]
+KEY_KP_ADD:         to :cint32 [334]
+KEY_KP_ENTER:       to :cint32 [335]
+KEY_KP_EQUAL:       to :cint32 [336]
+
 
 InitWindow: $[width :cint32,height :cint32, title :cstring] [
     call .external: "/usr/lib/libraylib.so"
@@ -100,46 +207,52 @@ DrawCircle: $[ centerX :cint32, centerY :cint32, radius :cfloat, color :rayColor
 ]
 
 IsKeyPressed: $[ key :cint32 ][
-    call .external "/usr/lib/libraylib.so"
+    call .external: "/usr/lib/libraylib.so"
         .expect: :cuint8
         'IsKeyPressed @[key]
 ]
 
+IsKeyDown: $[ key :cint32 ][
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :cuint8
+        'IsKeyDown @[key]
+]
+
+IsKeyPressedRepeat: $[ key :cint32 ][
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :cuint8
+        'IsKeyPressedRepeat @[key]
+]
+
+;MaximizeWindow: $[ ][
+;    call .external: "/usr/lib/libraylib.so"
+;        .expect: :cvoid
+;        'MaximizeWindow @[]
+;]
+;DoWhatever: $[poop :integer] -> print poop
+
 InitWindow to :cint32 [800] to :cint32 [450] to :cstring ["Basic Window from arturo"]
 SetTargetFPS to :cint32 [60]
+
 
 backgroundcolor: to :rayColor [ to :cuint8 [245] to :cuint8 [245] to :cuint8 [245] to :cuint8 [255]]
 fontcolor: to :rayColor [ to :cuint8 [120] to :cuint8 [120] to :cuint8 [120] to :cuint8 [255]]
 
-KEY_Q: to :cint32 [81]
-
-posX: 50
-print IsKeyPressed KEY_Q
-
 if? [ IsWindowReady == 1] [
     print "LOG: Window initalized correctly"
-    once: true
+    posX: 50
     while [ WindowShouldClose == 0 ] [
-
         BeginDrawing
-        ;print GetRandomValue to :cint32 [0] to :cint32 [42]
-        ClearBackground backgroundcolor
-        ;print "hmm?"
-;DrawText: $[text :cstring, posX :cint32, posY :cint32, fontSize :cint32, color :rayColor] [
-        ;DrawText to :cstring ["Hello in raylib from Arturo!"] to :cint32 [190] to :cint32 [200] to :cint32 [20] fontcolor
-        DrawCircle to :cint32 [posX] to :cint32 [50] to :cfloat [50.0] fontcolor
+
+            ClearBackground backgroundcolor
+            DrawCircle to :cint32 [posX] to :cint32 [50] to :cfloat [50.0] fontcolor
+            DrawText to :cstring ["Hello in raylib from Arturo! Press Q to Quit"] to :cint32 [190] to :cint32 [200] to :cint32 [20] fontcolor
         
         EndDrawing
-        posX: posX + 10
-        print posX
-        ;print IsKeyPressed to :cint32 [81]
-        close_window: 0;IsKeyPressed 
+        if (IsKeyDown KEY_SPACE) = 1 -> posX: posX + 2
         
-        if close_window = 1 [
-            
-            break
-        ]
-        ;print GetScreenWidth
+        close_window: IsKeyPressed KEY_Q
+        if close_window = 1 -> break
     ]
     CloseWindow
 ]
@@ -148,6 +261,8 @@ else [
     print "WARN: Something went wrong"
 ]
 
+        ;print IsKeyPressed to :cint32 [81]
+        ;DrawText to :cstring ["Hello in raylib from Arturo!"] to :cint32 [190] to :cint32 [200] to :cint32 [20] fontcolor
 
 ;int main(void)
 ;{
@@ -165,3 +280,4 @@ else [
 ;
 ;    return 0;
 ;}
+
