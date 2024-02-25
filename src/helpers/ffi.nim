@@ -257,8 +257,19 @@ when not defined(WEB):
                     buffer[i + offset] = cast[array[0..3,uint8]](field_v)[i] 
                     inc i
 
-            # 16-bit TODO
-            
+            of "cint16":
+                let field_v = v.o["value"].i.cshort
+                var i = 0
+                while i < size:
+                    buffer[i + offset] = cast[array[0..1,uint8]](field_v)[i] 
+                    inc i
+            of "cuint16":
+                let field_v = v.o["value"].i.cshort
+                var i = 0
+                while i < size:
+                    buffer[i + offset] = cast[array[0..1,uint8]](field_v)[i] 
+                    inc i
+
             of "cint8":
                 let field_v = v.o["value"].i.int8
                 buffer[offset] = cast[uint8](field_v)
@@ -374,17 +385,25 @@ when not defined(WEB):
                     
                     of Literal:
                         let value = FetchSym(p.s)
-                        var literal_value = returnValue(value)
-                        if literal_value.isNil():
-                            echo literal_value.kind, "!"
-                            # That means its some kind of struct
-                            echo "Unimplemented struct by reference"
-                            raise VMError()
+
+                        if not value.o.hasKey("value") and value.proto.name[0] != 'c': #FIXME
+                            var buffer = new array[0..63,uint8] # DONT PUT IT OUTSIDE OF IF, IT WONT WORK
+
+                            var buf_offset = 0
+                            for k in value.o.keys:
+                                if value.o[k].kind != Method:
+                                    #TODO add support for structs inside structs
+                                    let field = value.o[k]
+                                    let type_name = field.proto.name
+                                    turnIntoStruct(field,buffer[],buf_offset)
+                                    buf_offset += returnTypeSize(type_name)
+                            literal_values.add(cast[ptr array[0..63,uint8]](buffer))
+                            addParameterFFI(value,i, params_cif, args, struct_values, structs_elements, struct_types, cast[pointer](buffer.addr) )
                         else:
                             var buffer = new array[0..63,uint8]
                             turnIntoStruct(value,buffer[])
                             literal_values.add(cast[ptr array[0..63,uint8]](buffer))
-                            addParameterFFI(literal_value,i, params_cif, args, struct_values, structs_elements, struct_types, cast[pointer](buffer.addr) )
+                            addParameterFFI(value,i, params_cif, args, struct_values, structs_elements, struct_types, cast[pointer](buffer.addr) )
                     else:
                         echo "Incorrect type for C-FFI function call"
                         echo p.kind
@@ -431,9 +450,7 @@ when not defined(WEB):
                     call(cif, fun, return_string.addr, args)
                     result = newString(return_string)
                 of Nothing:
-                    #echo "calling"
                     call(cif, fun, nil, args)
-                    #echo "called"
                     result = VNULL
                 of Object:
                     call(cif, fun, return_struct.addr, args)
@@ -462,9 +479,8 @@ when not defined(WEB):
             var idx = 0
             for i,p in params.pairs:
                 if p.kind == Literal:
-                    #echo "Now assign value to me"
                     let param = FetchSym(p.s)
-                    if param.o.hasKey("value"):
+                    if param.o.hasKey("value") and param.proto.name[0] == 'c': # FIXME
                         # Single value
                         let buff : array[0..63,uint8] = cast[ptr array[0..63,uint8]](literal_values[idx])[]
                         case param.proto.name:
@@ -474,12 +490,51 @@ when not defined(WEB):
                                 Syms[p.s].o["value"].i = cast[clong](buff)
                             of "cfloat":    
                                 Syms[p.s].o["value"].f = cast[cfloat](buff)
+                            of "cdouble":    
+                                Syms[p.s].o["value"].f = cast[cdouble](buff)
                             else:
                                 echo "NOT IMPLEMENTED YET"
                     else:
                         # Struct
-                        # TODO
-                        echo "NOT IMPLEMENTED"
+                        let buff : array[0..63,uint8] = cast[ptr array[0..63,uint8]](literal_values[idx])[]
+                        var buf_offset : uint = 0
+                        for k in param.o.keys:
+                            if param.o[k].kind != Method:
+                                #TODO add support for structs inside structs
+                                let type_name = param.o[k].proto.name
+
+                                case type_name:
+                                    of "cfloat":
+                                        Syms[p.s].o[k].o["value"].f = cast[ptr cfloat]( cast[uint](buff.addr) + buf_offset )[]
+                                    of "cdouble":
+                                        Syms[p.s].o[k].o["value"].f = cast[ptr cdouble]( cast[uint](buff.addr) + buf_offset )[]
+                                    
+                                    of "cint64":
+                                        Syms[p.s].o[k].o["value"].i = cast[ptr clonglong]( cast[uint](buff.addr) + buf_offset )[]
+                                    of "cuint64":
+                                        Syms[p.s].o[k].o["value"].i = cast[ptr culonglong]( cast[uint](buff.addr) + buf_offset )[].int
+                                    
+                                    of "cint32":
+                                        Syms[p.s].o[k].o["value"].i = cast[ptr clong]( cast[uint](buff.addr) + buf_offset )[]
+                                    of "cuint32":
+                                        Syms[p.s].o[k].o["value"].i = cast[ptr culong]( cast[uint](buff.addr) + buf_offset )[].int
+
+                                    of "cint16":
+                                        Syms[p.s].o[k].o["value"].i = cast[ptr cshort]( cast[uint](buff.addr) + buf_offset )[]
+                                    of "cuint16":
+                                        Syms[p.s].o[k].o["value"].i = cast[ptr cushort]( cast[uint](buff.addr) + buf_offset )[].int
+                                    
+                                    of "cint8":
+                                        Syms[p.s].o[k].o["value"].i = cast[ptr cschar]( cast[uint](buff.addr) + buf_offset )[]
+                                    of "cuint8":
+                                        Syms[p.s].o[k].o["value"].i = cast[ptr uint8]( cast[uint](buff.addr) + buf_offset )[].int
+                                    else:
+                                        discard
+                                
+                                buf_offset += returnTypeSize(type_name).uint # FIXME PADDING
+                                
+                            
+                        
                     
                     inc idx
             
