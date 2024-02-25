@@ -95,10 +95,184 @@ when not defined(WEB):
     
     func getStructFieldPtr(struct: ptr array[0..63, uint8], offset: uint): uint =
         return cast[uint](struct) + offset
+
+    proc returnValue(val: Value) : Value =
+        return if val.o.hasKey("value"): val.o["value"] else: nil
+
+    proc addParameterFFI(p: Value, i : int ,params_cif: var ParamList, args : var ArgList,
+                                            struct_values: var seq[array[0..63,uint8]], structs_elements: var seq[array[0..15, ptr Type]],struct_types: var seq[Type],
+                                            literal_value: pointer | bool ) =
+        when literal_value isnot bool:
+            params_cif[i] = type_pointer.addr
+            args[i] = literal_value
+            return
+        else:
+            case p.kind:
+                of Object:
+                        let type_name = p.proto.name
+                        if type_name[0] == 'c': # FIXME
+                                params_cif[i] = returnTypeAddr(type_name)
+
+                                if type_name in ["cuint64", "cpointer"]:
+                                    var cval = csize_t.new # Test it out
+                                    cval[] = p.o["value"].i.csize_t
+                                    args[i] = cast[ptr csize_t](cval)
+                                
+                                elif type_name == "cint64":
+                                    var cval = clonglong.new # Test it out
+                                    cval[] = p.o["value"].i.clonglong
+                                    args[i] = cast[ptr clonglong](cval)
+                                
+                                elif type_name == "cint32":
+                                    var cval = clong.new
+                                    cval[] = p.o["value"].i.clong
+                                    args[i] = cast[ptr clong](cval)
+
+                                elif type_name == "cfloat":
+                                    var cval = cfloat.new # Test it out
+                                    cval[] = p.o["value"].f.cfloat
+                                    args[i] = cast[ptr cfloat](cval)
+                                
+                                elif type_name == "cstring":
+                                    var cval = cstring.new
+                                    cval[] = p.o["value"].s.cstring
+                                    args[i] = cast[cstring](cval)
+                                
+                                else:
+                                    echo "Unimplemented! ", type_name
+                        else:
+                            var 
+                                buffer : array[0..63, uint8] # Fake 64byte struct
+                                idx = 0
+                                max_size  = 0
+                                full_size = 0
+                                types : OrderedTable[string,int]
+                                elements_buf : array[0..15, ptr Type]
+
+                            var j = 0
+                            for value in p.o.values:
+                                #echo value.kind
+                                if value.kind != Method:
+                            # ------- Defining struct layout and type
+                                    let size = returnTypeSize(value.proto.name)
+                                    types[value.proto.name] = size
+                                    
+                                    if size > max_size: max_size = size
+                                    full_size += size
+                                    
+                                    let address = returnTypeAddr(value.proto.name) # TODO, Add types for other structs too
+                                    if address.isNil:
+                                        echo "Error Type: ", value.proto.name
+                                        break
+                                    else:
+                                        elements_buf[j] = address
+                                        inc j
+                                    case value.proto.name:
+                                        of "cfloat":
+                                            for b in cast[array[0..3,uint8]](cfloat(value.o["value"].f)):
+                                                buffer[idx] = b
+                                                inc idx
+                                        of "cdouble":
+                                            for b in cast[array[0..7,uint8]](cdouble(value.o["value"].f)):
+                                                buffer[idx] = b
+                                                inc idx
+
+                                        of "cint64":
+                                            for b in cast[array[0..7,uint8]](clonglong(value.o["value"].i)):
+                                                buffer[idx] = b
+                                                inc idx
+                                        of "cuint64":
+                                            for b in cast[array[0..7,uint8]](culonglong(value.o["value"].i)):
+                                                buffer[idx] = b
+                                                inc idx
+                                        of "cint32":
+                                            for b in cast[array[0..3,uint8]](clong(value.o["value"].i)):
+                                                buffer[idx] = b
+                                                inc idx
+                                        of "cuint32":
+                                            for b in cast[array[0..3,uint8]](culong(value.o["value"].i)):
+                                                buffer[idx] = b
+                                                inc idx
+                                        #TODO 16-bit
+                                        of "cuint8":
+                                            for b in cast[array[0..0,uint8]](culong(value.o["value"].i)):
+                                                buffer[idx] = b
+                                                inc idx
+                                        else:
+                                            echo "Unimplemented field type: ", value.proto.name
+                            
+                            struct_values.add(buffer)
+                            args[i] = struct_values[struct_values.high].addr
+                            
+                            structs_elements.add(elements_buf)
+                            struct_types.add( 
+                                libffi.Type(size: full_size, 
+                                            alignment: max_size.uint16 , 
+                                            typ: tkSTRUCT, 
+                                            elements: cast[ptr ptr Type](structs_elements[structs_elements.high].addr) ) 
+                                )
+                            params_cif[i] = struct_types[struct_types.high].addr
+                else:
+                    discard
+    
+    proc turnIntoStruct(v: Value, buffer: var array[0..63,uint8], offset : int = 0) =
+        let size = returnTypeSize(v.proto.name)
+        case v.proto.name:
+            of "cint64":
+                let field_v = v.o["value"].i.clonglong
+                var i = 0
+                while i < size:
+                    buffer[i + offset] = cast[array[0..7,uint8]](field_v)[i] 
+                    inc i
+            of "cuint64", "cpointer":
+                let field_v = v.o["value"].i.culonglong
+                var i = 0
+                while i < size:
+                    buffer[i + offset] = cast[array[0..7,uint8]](field_v)[i] 
+                    inc i
+            
+            of "cdouble":
+                let field_v = v.o["value"].f.cdouble
+                var i = 0
+                while i < size:
+                    buffer[i + offset] = cast[array[0..7,uint8]](field_v)[i] 
+                    inc i
+            of "cfloat":
+                let field_v = v.o["value"].f.cfloat
+                var i = 0
+                while i < size:
+                    buffer[i + offset] = cast[array[0..3,uint8]](field_v)[i] 
+                    inc i
+
+            of "cint32":
+                let field_v = v.o["value"].i.clong
+                var i = 0
+                while i < size:
+                    buffer[i + offset] = cast[array[0..3,uint8]](field_v)[i] 
+                    inc i
+            of "cuint32":
+                let field_v = v.o["value"].i.culong
+                var i = 0
+                while i < size:
+                    buffer[i + offset] = cast[array[0..3,uint8]](field_v)[i] 
+                    inc i
+
+            # 16-bit TODO
+            
+            of "cint8":
+                let field_v = v.o["value"].i.int8
+                buffer[offset] = cast[uint8](field_v)
+                
+            of "cuint8":
+                let field_v = v.o["value"].i.uint8
+                buffer[offset] = field_v
+            else:
+                echo "unimplemented field type"
+                raise VMError()
+
     #=======================================
     # Methods
     #=======================================
-    #var CachedFFILibs : Table[string, LibHandle]
 
     proc execForeignMethod*(path: string, meth: string, params: ValueArray = @[], expected: Value = nil): Value =
         try:
@@ -138,6 +312,8 @@ when not defined(WEB):
 
                 return_struct_type: Type
                 return_struct_fields: seq[string]
+
+                literal_values : seq[pointer]
 
             # TODO When its block, do the same as in Object but keep in mind it returns a pointer
             if expectedType == Object: # set up cffi struct type to return
@@ -194,121 +370,27 @@ when not defined(WEB):
             for i,p in params.pairs:
                 case p.kind:
                     of Object:
-                            let type_name = params[i].proto.name
-                            if type_name[0] == 'c': # FIXME
-                                    params_cif[i] = returnTypeAddr(type_name)
-
-                                    if type_name in ["cuint64", "cpointer"]:
-                                        var cval = csize_t.new # Test it out
-                                        cval[] = params[i].o["value"].i.csize_t
-                                        args[i] = cast[ptr csize_t](cval)
-                                    
-                                    elif type_name == "cint64":
-                                        var cval = clonglong.new # Test it out
-                                        cval[] = params[i].o["value"].i.clonglong
-                                        args[i] = cast[ptr clonglong](cval)
-                                    
-                                    elif type_name == "cint32":
-                                        var cval = clong.new
-                                        cval[] = params[i].o["value"].i.clong
-                                        args[i] = cast[ptr clong](cval)
-
-                                    elif type_name == "cfloat":
-                                        var cval = cfloat.new # Test it out
-                                        cval[] = params[i].o["value"].f.cfloat
-                                        args[i] = cast[ptr cfloat](cval)
-                                    
-                                    elif type_name == "cstring":
-                                        var cval = cstring.new
-                                        cval[] = params[i].o["value"].s.cstring
-                                        args[i] = cast[cstring](cval)
-                                    
-                                    else:
-                                        echo "Unimplemented! ", type_name
-                            else:
-                                var 
-                                    buffer : array[0..63, uint8] # Fake 64byte struct
-                                    idx = 0
-                                    max_size  = 0
-                                    full_size = 0
-                                    types : OrderedTable[string,int]
-                                    elements_buf : array[0..15, ptr Type]
-
-                                var j = 0
-                                for value in params[i].o.values:
-                                    #echo value.kind
-                                    if value.kind != Method:
-                                # ------- Defining struct layout and type
-                                        let size = returnTypeSize(value.proto.name)
-                                        types[value.proto.name] = size
-                                        
-                                        if size > max_size: max_size = size
-                                        full_size += size
-                                        
-                                        let address = returnTypeAddr(value.proto.name) # TODO, Add types for other structs too
-                                        if address.isNil:
-                                            echo "Error Type: ", value.proto.name
-                                            break
-                                        else:
-                                            elements_buf[j] = address
-                                            inc j
-                                        case value.proto.name:
-                                            of "cfloat":
-                                                for b in cast[array[0..3,uint8]](cfloat(value.o["value"].f)):
-                                                    buffer[idx] = b
-                                                    inc idx
-                                            of "cdouble":
-                                                for b in cast[array[0..7,uint8]](cdouble(value.o["value"].f)):
-                                                    buffer[idx] = b
-                                                    inc idx
-
-                                            of "cint64":
-                                                for b in cast[array[0..7,uint8]](clonglong(value.o["value"].i)):
-                                                    buffer[idx] = b
-                                                    inc idx
-                                            of "cuint64":
-                                                for b in cast[array[0..7,uint8]](culonglong(value.o["value"].i)):
-                                                    buffer[idx] = b
-                                                    inc idx
-                                            of "cint32":
-                                                for b in cast[array[0..3,uint8]](clong(value.o["value"].i)):
-                                                    buffer[idx] = b
-                                                    inc idx
-                                            of "cuint32":
-                                                for b in cast[array[0..3,uint8]](culong(value.o["value"].i)):
-                                                    buffer[idx] = b
-                                                    inc idx
-                                            of "cuint8":
-                                                for b in cast[array[0..0,uint8]](culong(value.o["value"].i)):
-                                                    buffer[idx] = b
-                                                    inc idx
-                                            else:
-                                                echo "Unimplemented field type: ", value.proto.name
-                                
-                                struct_values.add(buffer)
-                                args[i] = struct_values[struct_values.high].addr
-                                
-                                structs_elements.add(elements_buf)
-                                struct_types.add( 
-                                    libffi.Type(size: full_size, 
-                                                alignment: max_size.uint16 , 
-                                                typ: tkSTRUCT, 
-                                                elements: cast[ptr ptr Type](structs_elements[structs_elements.high].addr) ) 
-                                    )
-                                params_cif[i] = struct_types[struct_types.high].addr
-
-                                # -------------------------------------------
-
+                        addParameterFFI(p,i, params_cif, args, struct_values, structs_elements, struct_types, false)
                     
-                    of Literal: # TODO Should be same as Object but passed as pointer
-                        discard
+                    of Literal:
+                        let value = FetchSym(p.s)
+                        var literal_value = returnValue(value)
+                        if literal_value.isNil():
+                            echo literal_value.kind, "!"
+                            # That means its some kind of struct
+                            echo "Unimplemented struct by reference"
+                            raise VMError()
+                        else:
+                            var buffer = new array[0..63,uint8]
+                            turnIntoStruct(value,buffer[])
+                            literal_values.add(cast[ptr array[0..63,uint8]](buffer))
+                            addParameterFFI(literal_value,i, params_cif, args, struct_values, structs_elements, struct_types, cast[pointer](buffer.addr) )
                     else:
                         echo "Incorrect type for C-FFI function call"
                         echo p.kind
 
                         discard
             
-            #echo args.repr
             var return_type: ptr Type 
             var # A temporary solution, might be better to have one variable of biggest type and then unsafely cast it
                 return_int    : int
@@ -332,7 +414,8 @@ when not defined(WEB):
             if OK != prep_cif(cif, DEFAULT_ABI, params.len.cuint , return_type, params_cif):
                 echo "Something went wrong with preparing the statement"
                 quit 1
-            
+            #echo "prepared function"
+
             case expectedType: # Add appropriate casting later
                 of Integer:
                     call(cif, fun, return_int.addr, args)
@@ -348,7 +431,9 @@ when not defined(WEB):
                     call(cif, fun, return_string.addr, args)
                     result = newString(return_string)
                 of Nothing:
+                    #echo "calling"
                     call(cif, fun, nil, args)
+                    #echo "called"
                     result = VNULL
                 of Object:
                     call(cif, fun, return_struct.addr, args)
@@ -374,7 +459,31 @@ when not defined(WEB):
                 else:
                     discard
             
-            #unloadLibrary(lib)
+            var idx = 0
+            for i,p in params.pairs:
+                if p.kind == Literal:
+                    #echo "Now assign value to me"
+                    let param = FetchSym(p.s)
+                    if param.o.hasKey("value"):
+                        # Single value
+                        let buff : array[0..63,uint8] = cast[ptr array[0..63,uint8]](literal_values[idx])[]
+                        case param.proto.name:
+                            of "cint64":    
+                                Syms[p.s].o["value"].i = cast[clonglong](buff)
+                            of "cint32":    
+                                Syms[p.s].o["value"].i = cast[clong](buff)
+                            of "cfloat":    
+                                Syms[p.s].o["value"].f = cast[cfloat](buff)
+                            else:
+                                echo "NOT IMPLEMENTED YET"
+                    else:
+                        # Struct
+                        # TODO
+                        echo "NOT IMPLEMENTED"
+                    
+                    inc idx
+            
+            # TODO Assign values to provided literals
         
         except VMError as e:
             raise e
