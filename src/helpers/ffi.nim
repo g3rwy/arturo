@@ -113,27 +113,33 @@ when not defined(WEB):
                         if type_name[0] == 'c': # FIXME
                                 params_cif[i] = returnTypeAddr(type_name)
 
-                                if type_name in ["cuint64", "cpointer"]:
+                                case type_name:
+                                of "cuint64", "cpointer":
                                     var cval = csize_t.new # Test it out
                                     cval[] = p.o["value"].i.csize_t
                                     args[i] = cast[ptr csize_t](cval)
                                 
-                                elif type_name == "cint64":
+                                of "cint64":
                                     var cval = clonglong.new # Test it out
                                     cval[] = p.o["value"].i.clonglong
                                     args[i] = cast[ptr clonglong](cval)
                                 
-                                elif type_name == "cint32":
+                                of "cint32":
                                     var cval = clong.new
                                     cval[] = p.o["value"].i.clong
                                     args[i] = cast[ptr clong](cval)
+                                
+                                of "cuint32":
+                                    var cval = culong.new
+                                    cval[] = p.o["value"].i.culong
+                                    args[i] = cast[ptr culong](cval)
 
-                                elif type_name == "cfloat":
+                                of "cfloat":
                                     var cval = cfloat.new # Test it out
                                     cval[] = p.o["value"].f.cfloat
                                     args[i] = cast[ptr cfloat](cval)
                                 
-                                elif type_name == "cstring":
+                                of "cstring":
                                     var cval = cstring.new
                                     cval[] = p.o["value"].s.cstring
                                     args[i] = cast[cstring](cval)
@@ -141,6 +147,9 @@ when not defined(WEB):
                                 else:
                                     echo "Unimplemented! ", type_name
                         else:
+                            if type_name.len == 0:
+                                echo "WROOOONG"
+                            echo type_name
                             var 
                                 buffer : array[0..63, uint8] # Fake 64byte struct
                                 idx = 0
@@ -151,8 +160,8 @@ when not defined(WEB):
 
                             var j = 0
                             for value in p.o.values:
-                                #echo value.kind
                                 if value.kind != Method:
+                                    echo "YES"
                             # ------- Defining struct layout and type
                                     let size = returnTypeSize(value.proto.name)
                                     types[value.proto.name] = size
@@ -167,40 +176,13 @@ when not defined(WEB):
                                     else:
                                         elements_buf[j] = address
                                         inc j
-                                    case value.proto.name:
-                                        of "cfloat":
-                                            for b in cast[array[0..3,uint8]](cfloat(value.o["value"].f)):
-                                                buffer[idx] = b
-                                                inc idx
-                                        of "cdouble":
-                                            for b in cast[array[0..7,uint8]](cdouble(value.o["value"].f)):
-                                                buffer[idx] = b
-                                                inc idx
-
-                                        of "cint64":
-                                            for b in cast[array[0..7,uint8]](clonglong(value.o["value"].i)):
-                                                buffer[idx] = b
-                                                inc idx
-                                        of "cuint64":
-                                            for b in cast[array[0..7,uint8]](culonglong(value.o["value"].i)):
-                                                buffer[idx] = b
-                                                inc idx
-                                        of "cint32":
-                                            for b in cast[array[0..3,uint8]](clong(value.o["value"].i)):
-                                                buffer[idx] = b
-                                                inc idx
-                                        of "cuint32":
-                                            for b in cast[array[0..3,uint8]](culong(value.o["value"].i)):
-                                                buffer[idx] = b
-                                                inc idx
-                                        #TODO 16-bit
-                                        of "cuint8":
-                                            for b in cast[array[0..0,uint8]](culong(value.o["value"].i)):
-                                                buffer[idx] = b
-                                                inc idx
-                                        else:
-                                            echo "Unimplemented field type: ", value.proto.name
+                                    
+                                    turnIntoStruct(value,buffer,idx)
+                                    idx += size
                             
+                            echo buffer
+                            echo elements_buf.repr
+
                             struct_values.add(buffer)
                             args[i] = struct_values[struct_values.high].addr
                             
@@ -284,13 +266,15 @@ when not defined(WEB):
     #=======================================
     # Methods
     #=======================================
-
-    proc execForeignMethod*(path: string, meth: string, params: ValueArray = @[], expected: Value = nil): Value =
+    import std/endians
+    
+    proc execForeignMethod*(path: string, meth: string, params: ValueArray = @[], expected_t: Value = nil): Value =
         try:
             #TODO Have some kind of check if struct is one element? Cause it might not work
             # set result to :null
+            #TODO Check and add padding to all struct oriented scopes, padded to biggest type
             result = VNULL
-
+            
             # load library
             var fun : pointer = nil
             if path in CachedFFILibs:
@@ -305,18 +289,20 @@ when not defined(WEB):
 
             # If expected value is nil then  
             var expectedType: ValueKind = 
-                if expected.isNil:
+                if expected_t.isNil:
                     Nothing    # turn that into Nothing ValueKind
                 else:
-                    expected.t # otherwise use ValueKind underneath 
-
-            # TODO, if expected type is Block, it should contain :null type inside + type, treated as return as pointer
-
+                    if expected_t.kind != Block:
+                        expected_t.t # otherwise use ValueKind underneath if its not Block
+                    else:
+                        Block
+                    
             var
                 cif: TCif
                 params_cif: ParamList
                 args: ArgList
-                
+                returns_pointer = false
+                expected : Value = expected_t
                 struct_values   : seq[array[0..63, uint8]] # 64-byte array to be used as struct
                 structs_elements: seq[array[0..15, ptr Type]] 
                 struct_types    : seq[Type]
@@ -327,6 +313,24 @@ when not defined(WEB):
                 literal_values : seq[pointer]
 
             # TODO When its block, do the same as in Object but keep in mind it returns a pointer
+            if expectedType == Block:
+                returns_pointer = true
+                if expected.a.len != 2:
+                    echo "Block should have 2 elements"
+                    raise VMError()
+
+                var has_null = false
+                for v in expected_t.a:
+                    let typ = v.t
+                    if typ == Null: has_null = true; continue
+                    expected = v
+                    expectedType = typ
+                
+                if not has_null:
+                    echo "No null inside the block"
+                    raise VMError()
+
+            
             if expectedType == Object: # set up cffi struct type to return
                 case expected.tid:
                     of "cvoid":
@@ -354,6 +358,7 @@ when not defined(WEB):
                             max_size  = 0
                             full_size = 0
                             buffer : array[0..15, ptr Type]
+                            i = 0
 
                         for f in return_type.content["init"].mmain.a:
                             if f.kind == Block:
@@ -363,9 +368,8 @@ when not defined(WEB):
                                         return_struct_fields.add(typ.tid)
 
                                         if size > max_size: max_size = size
-                                        full_size += size 
+                                        full_size += size
                         
-                                        var i = 0
                                         if size != 0:
                                             let address = returnTypeAddr(typ.tid) # TODO, Add types for other structs too
                                             if address.isNil:
@@ -377,7 +381,7 @@ when not defined(WEB):
                         
                         structs_elements.add(buffer)
                         return_struct_type = libffi.Type(size: full_size, alignment: max_size.uint16 , typ: tkSTRUCT, elements: cast[ptr ptr Type](structs_elements[0].addr))
-             
+                        # FIXME currently using structs_elements[0], keep that in mind for declaring other structs
             for i,p in params.pairs:
                 case p.kind:
                     of Object:
@@ -414,46 +418,74 @@ when not defined(WEB):
             var # A temporary solution, might be better to have one variable of biggest type and then unsafely cast it
                 return_int    : int
                 return_float  : float # FIXME make it either float or float32
-                return_logical: int
                 return_string : cstring
                 return_struct : array[0..63,uint8]
                 return_pointer: pointer
 
-            case expectedType:
-                of Nothing:
-                    return_type = type_void.addr
-                of Integer, Floating, String:
-                    return_type = returnTypeAddr(expected.tid)
-                of Object:
-                    return_type = return_struct_type.addr
-                else:
-                    echo "Unimplemented return type ", expected.tid
-                    discard
-                
+            if returns_pointer:
+                return_type = type_pointer.addr
+            else:
+                case expectedType:
+                    of Nothing:
+                        return_type = type_void.addr
+                    of Integer, Floating, String:
+                        return_type = returnTypeAddr(expected.tid)
+                    of Object:
+                        return_type = return_struct_type.addr
+                    else:
+                        echo "Unimplemented return type ", expected.tid
+                        discard
+                    
             if OK != prep_cif(cif, DEFAULT_ABI, params.len.cuint , return_type, params_cif):
                 echo "Something went wrong with preparing the statement"
                 quit 1
-            #echo "prepared function"
 
             case expectedType: # Add appropriate casting later
-                of Integer:
-                    call(cif, fun, return_int.addr, args)
+                of Integer: #TODO fix all the types
+                    if returns_pointer:
+                        call(cif, fun, return_pointer.addr, args)
+                        return_int = cast[ptr int](return_pointer)[]
+                    else:
+                        call(cif, fun, return_int.addr, args)
                     result = newInteger(return_int)
                 of Floating:
-                    call(cif, fun, return_float.addr, args)
+                    if returns_pointer:
+                        call(cif, fun, returns_pointer.addr, args)
+                        return_float = cast[ptr float64](return_pointer)[]
+                    else:
+                        call(cif, fun, return_float.addr, args)
                     result = if expected.tid == "cdouble": newFloating(return_float)
                     else:                                  newFloating(cast[float32](return_float))
                 of Logical:
-                    call(cif, fun, return_logical.addr, args)
-                    result = newLogical(return_logical)
+                    if returns_pointer:
+                        call(cif, fun, return_pointer.addr, args)
+                        return_int = cast[ptr int](return_pointer)[]
+                    else:
+                        call(cif, fun, return_int.addr, args)
+                    result = newLogical(return_int)
                 of String:
-                    call(cif, fun, return_string.addr, args)
-                    result = newString(return_string)
+                    if returns_pointer:
+                        call(cif, fun, return_pointer.addr, args)
+                        if not return_pointer.isNil: return_string = cast[cstring](return_pointer)
+                    else:
+                        call(cif, fun, return_string.addr, args)
+                    if returns_pointer and (not return_pointer.isNil):
+                        result = newString(return_string)
+                    else:
+                        result = VNULL
                 of Nothing:
+                    if returns_pointer:
+                        echo "Is it really correct?"
+                        raise VMError()
                     call(cif, fun, nil, args)
                     result = VNULL
                 of Object:
-                    call(cif, fun, return_struct.addr, args)
+                    if returns_pointer:
+                        call(cif, fun, return_pointer.addr, args)
+                        return_struct = cast[ptr array[0..63,uint8]](return_pointer)[]
+                    else:
+                        call(cif, fun, return_struct.addr, args)
+
                     var result_block : seq[Value]
                     var idx : uint = 0
                     for f in return_struct_fields:
@@ -465,12 +497,40 @@ when not defined(WEB):
                                 result_block.add( newFloating( cast[ptr float32]( getStructFieldPtr(return_struct.addr, idx) )[] ) )
                                 idx += returnTypeSize(f).uint
                             
+                            of "cpointer":
+                                var val: array[0..7, uint8]
+                                littleEndian64(val.addr, cast[ptr array[0..7, uint8]]( getStructFieldPtr(return_struct.addr, idx) ) )
+                                result_block.add( newInteger( cast[csize_t](val).int ) )
+                                idx += returnTypeSize(f).uint
+
                             of "cint64":
                                 result_block.add( newInteger( cast[ptr clonglong]( getStructFieldPtr(return_struct.addr, idx) )[] ) )
                                 idx += returnTypeSize(f).uint
                             of "cuint64":
                                 result_block.add( newInteger( cast[ptr culonglong]( getStructFieldPtr(return_struct.addr, idx) )[].int ) )
                                 idx += returnTypeSize(f).uint
+                            
+                            of "cint32":
+                                var val: array[0..3, uint8]
+                                littleEndian32(val.addr, cast[ptr array[0..3, uint8]]( getStructFieldPtr(return_struct.addr, idx) ) )
+                                result_block.add( newInteger( cast[int32](val) ) )
+                                idx += returnTypeSize(f).uint
+                            of "cuint32":
+                                var val: array[0..3, uint8]
+                                littleEndian32(val.addr, cast[ptr array[0..3, uint8]]( getStructFieldPtr(return_struct.addr, idx) ) )
+                                result_block.add( newInteger( cast[uint32](val).int ) )
+                                idx += returnTypeSize(f).uint
+
+                            of "cint16":
+                                result_block.add( newInteger( cast[ptr cshort]( getStructFieldPtr(return_struct.addr, idx) )[] ) )
+                                idx += returnTypeSize(f).uint
+                            of "cuint16":
+                                result_block.add( newInteger( cast[ptr cushort]( getStructFieldPtr(return_struct.addr, idx) )[].int ) )
+                                idx += returnTypeSize(f).uint
+                            
+                            else:
+                                echo "Unimplemented field type yet ", f
+                                raise VMError()
                     
                     result = newBlock( result_block )
                 else:
@@ -486,8 +546,14 @@ when not defined(WEB):
                         case param.proto.name:
                             of "cint64":    
                                 Syms[p.s].o["value"].i = cast[clonglong](buff)
+                            of "cuint64":    
+                                Syms[p.s].o["value"].i = cast[culonglong](buff).int
+                            
                             of "cint32":    
                                 Syms[p.s].o["value"].i = cast[clong](buff)
+                            of "cuint32":    
+                                Syms[p.s].o["value"].i = cast[culong](buff).int
+                            #TODO 16-bit
                             of "cfloat":    
                                 Syms[p.s].o["value"].f = cast[cfloat](buff)
                             of "cdouble":    
@@ -531,14 +597,11 @@ when not defined(WEB):
                                     else:
                                         discard
                                 
-                                buf_offset += returnTypeSize(type_name).uint # FIXME PADDING
-                                
-                            
+                                buf_offset += returnTypeSize(type_name).uint # FIXME PADDING                            
                         
                     
                     inc idx
             
-            # TODO Assign values to provided literals
         
         except VMError as e:
             raise e

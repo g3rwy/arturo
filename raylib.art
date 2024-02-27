@@ -1,23 +1,156 @@
-define :cfloat   [ value :floating ]
-define :cdouble  [ value :floating ]
-define :cldouble [ value :floating ]
-;TODO checking if this new plugin works :cin32
-define :cint64   [ value :integer ]
-define :cint32   [ value :integer ]
-define :cint16   [ value :integer ]
-define :cint8    [ value :integer ]
+define :cfloat   [
+    init: method [ x :floating ][ this\value: x ]
+    integer:  method []-> to :integer this\value
+    floating: method []-> this\value
+    logical:  method []-> to :logical  this\value
+    string:  method  []-> to :string this\value
+]
 
-define :cuint64  [ value :integer ]
-define :cuint32  [ value :integer ]
-define :cuint16  [ value :integer ]
-define :cuint8   [ value :integer ]
-define :cpointer [ value :integer ]
-define :cstring  [ value :string  ]
+define :cdouble   [
+    init: method [ x :floating ][ this\value: x ]
+    integer:  method []-> to :integer this\value
+    floating: method []-> this\value
+    logical:  method []-> to :logical  this\value
+    string:  method  []-> to :string this\value
+]
+
+define :cldouble  [
+    init: method [ x :floating ][ this\value: x ]
+    integer:  method []-> to :integer this\value
+    floating: method []-> this\value
+    logical:  method []-> to :logical  this\value
+    string:  method  []-> to :string this\value
+]
+
+define :cint64   [
+    init: method [ x :integer ][ this\value: x ]
+    integer:  method []-> this\value
+    floating: method []-> to :floating this\value
+    logical:  method []-> to :logical  this\value
+    string:  method []-> to :string this\value
+]
+
+define :cint32  [
+    init: method [ x :integer ][ ensure [ between? x (neg (2^31)) ((2^31)-1) ] this\value: x ]
+    integer:  method []-> this\value
+    floating: method []-> to :floating this\value
+    logical:  method []-> to :logical  this\value
+    string:  method []-> to :string this\value
+]
+
+define :cint16   [
+    init: method [ x :integer ][ ensure [ between? x (neg (2^15)) ((2^15)-1) ] this\value: x ]
+    integer:  method []-> this\value
+    floating: method []-> to :floating this\value
+    logical:  method []-> to :logical  this\value
+    string:  method []-> to :string this\value
+]
+
+define :cint8   [
+    init: method [ x :integer ][ ensure [ between? x (neg (2^7)) ((2^7)-1) ] this\value: x ]
+    integer:  method []-> this\value
+    floating: method []-> to :floating this\value
+    logical:  method []-> to :logical  this\value
+    string:  method []-> to :string this\value
+]
+
+define :cuint64   [ ; TODO artithmetrics with checking for negative values
+    init: method [ x :integer ][ ensure [x >= 0] this\value: x ]
+    integer:  method []-> this\value
+    floating: method []-> to :floating this\value
+    logical:  method []-> to :logical  this\value
+    string:   method []-> to :string this\value
+]
+
+define :cuint32   [ ; TODO artithmetrics with checking for negative values
+    init: method [ x :integer ][ ensure [between? x 0 ((2^32) - 1)] this\value: x ]
+    integer:  method []-> this\value
+    floating: method []-> to :floating this\value
+    logical:  method []-> to :logical  this\value
+    string:   method []-> to :string this\value
+]
+
+define :cuint16   [ ; TODO artithmetrics with checking for negative values
+    init: method [ x :integer ][ ensure [between? x 0 ((2^16) - 1)] this\value: x ]
+    integer:  method []-> this\value
+    floating: method []-> to :floating this\value
+    logical:  method []-> to :logical  this\value
+    string:   method []-> to :string this\value
+]
+
+define :cuint8   [ ; TODO artithmetrics with checking for negative values
+    init: method [ x :integer ][ ensure [between? x 0 ((2^8) - 1)] this\value: x ]
+    integer:  method []-> this\value
+    floating: method []-> to :floating this\value
+    logical:  method []-> to :logical  this\value
+    string:   method []-> to :string this\value
+]
+
+define :cpointer   [
+    init: method [ x :integer ][ this\value: x ]
+    ;                     if pointer's value is not 0, it will output it's value, otherwise null
+    integer:  method []-> (this\value <> 0)? -> this\value -> null
+    floating: method []-> to :floating this\value
+    logical:  method []-> to :logical  this\value
+    string:   method []-> to :string this\value
+]
+
+define :cstring   [ ; TODO artithmetrics with checking for negative values
+    init: method [ x :string ][ this\value: x ]
+    integer:  method []-> to :integer this\value
+    floating: method []-> to :floating this\value
+    logical:  method []-> to :logical  this\value
+    string:   method []-> this\value
+]
 
 define :cvoid    [ ] 
 
 define :Vector2 [x :cfloat, y :cfloat]
 define :rayColor [r :cuint8, g :cuint8, b :cuint8, a :cuint8]
+
+    
+define :Image [
+    data :cpointer,
+    width :cint32,
+    height :cint32,
+    mipmaps :cint32,
+    format :cint32
+] 
+
+define :Texture [
+    id :cuint32,
+    width :cint32,
+    height :cint32,
+    mipmaps :cint32,
+    format :cint32,
+]
+
+LIGHTGRAY:  to :rayColor  [ to :cuint8[200] to :cuint8 [200] to :cuint8 [200] to :cuint8 [255] ]   
+GRAY:       to :rayColor  [ to :cuint8[130] to :cuint8 [130] to :cuint8 [130] to :cuint8 [255] ]   
+DARKGRAY:   to :rayColor  [ to :cuint8[80]  to :cuint8 [80]  to :cuint8 [80]  to :cuint8 [255] ]      
+YELLOW:     to :rayColor  [ to :cuint8[253] to :cuint8 [249] to :cuint8 [0]   to :cuint8 [255] ]     
+GOLD:       to :rayColor  [ to :cuint8[255] to :cuint8 [203] to :cuint8 [0]   to :cuint8 [255] ]     
+ORANGE:     to :rayColor  [ to :cuint8[255] to :cuint8 [161] to :cuint8 [0]   to :cuint8 [255] ]     
+PINK:       to :rayColor  [ to :cuint8[255] to :cuint8 [109] to :cuint8 [194] to :cuint8 [255] ]   
+RED:        to :rayColor  [ to :cuint8[230] to :cuint8 [41]  to :cuint8 [55]  to :cuint8 [255] ]     
+MAROON:     to :rayColor  [ to :cuint8[190] to :cuint8 [33]  to :cuint8 [55]  to :cuint8 [255] ]     
+GREEN:      to :rayColor  [ to :cuint8[0]   to :cuint8 [228] to :cuint8 [48]  to :cuint8 [255] ]      
+LIME:       to :rayColor  [ to :cuint8[0]   to :cuint8 [158] to :cuint8 [47]  to :cuint8 [255] ]      
+DARKGREEN:  to :rayColor  [ to :cuint8[0]   to :cuint8 [117] to :cuint8 [44]  to :cuint8 [255] ]      
+SKYBLUE:    to :rayColor  [ to :cuint8[102] to :cuint8 [191] to :cuint8 [255] to :cuint8 [255] ]   
+BLUE:       to :rayColor  [ to :cuint8[0]   to :cuint8 [121] to :cuint8 [241] to :cuint8 [255] ]     
+DARKBLUE:   to :rayColor  [ to :cuint8[0]   to :cuint8 [82]  to :cuint8 [172] to :cuint8 [255] ]      
+PURPLE:     to :rayColor  [ to :cuint8[200] to :cuint8 [122] to :cuint8 [255] to :cuint8 [255] ]   
+VIOLET:     to :rayColor  [ to :cuint8[135] to :cuint8 [60]  to :cuint8 [190] to :cuint8 [255] ]    
+DARKPURPLE: to :rayColor  [ to :cuint8[112] to :cuint8 [31]  to :cuint8 [126] to :cuint8 [255] ]    
+BEIGE:      to :rayColor  [ to :cuint8[211] to :cuint8 [176] to :cuint8 [131] to :cuint8 [255] ]   
+BROWN:      to :rayColor  [ to :cuint8[127] to :cuint8 [106] to :cuint8 [79]  to :cuint8 [255] ]    
+DARKBROWN:  to :rayColor  [ to :cuint8[76]  to :cuint8 [63]  to :cuint8 [47]  to :cuint8 [255] ]      
+WHITE:      to :rayColor  [ to :cuint8[255] to :cuint8 [255] to :cuint8 [255] to :cuint8 [255] ]   
+BLACK:      to :rayColor  [ to :cuint8[0]   to :cuint8 [0]   to :cuint8 [0]   to :cuint8 [255] ]         
+BLANK:      to :rayColor  [ to :cuint8[0]   to :cuint8 [0]   to :cuint8 [0]   to :cuint8 [0]   ]           
+MAGENTA:    to :rayColor  [ to :cuint8[255] to :cuint8 [0]   to :cuint8 [255] to :cuint8 [255] ]     
+RAYWHITE:   to :rayColor  [ to :cuint8[245] to :cuint8 [245] to :cuint8 [245] to :cuint8 [255] ]   
 
 KEY_NULL:           to :cint32 [0]
 KEY_APOSTROPHE:     to :cint32 [39]
@@ -127,7 +260,7 @@ KEY_KP_ENTER:       to :cint32 [335]
 KEY_KP_EQUAL:       to :cint32 [336]
 
 
-InitWindow: $[width :cint32,height :cint32, title :cstring] [
+InitWindow: $[width :cint32, height :cint32, title :cstring] [
     call .external: "/usr/lib/libraylib.so"
         .expect:   :cvoid
         'InitWindow @[width height title]
@@ -223,61 +356,96 @@ IsKeyPressedRepeat: $[ key :cint32 ][
         .expect: :cuint8
         'IsKeyPressedRepeat @[key]
 ]
+;void SetTraceLogLevel(int logLevel); 
+SetTraceLogLevel: $[logLevel :cint32] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :cvoid
+        'SetTraceLogLevel @[logLevel]
+]
 
-;MaximizeWindow: $[ ][
-;    call .external: "/usr/lib/libraylib.so"
-;        .expect: :cvoid
-;        'MaximizeWindow @[]
+LoadImage: $[fileName :cstring] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :Image
+        'LoadImage @[fileName]
+]
+
+UnloadImage: $[image :Image] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :cvoid
+        'UnloadImage @[image]
+]
+UnloadTexture: $[image :Texture] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :cvoid
+        'UnloadTexture @[image]
+]
+
+LoadTexture: $[fileName :cstring] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :Texture
+        'LoadTexture @[fileName]
+]
+LoadTextureFromImage: $[image :Image] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :Texture
+        'LoadTextureFromImage @[image]
+]
+
+IsTextureReady: $[texture :Texture] [
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :cint8
+        'IsTextureReady @[texture]
+]
+
+;void DrawFPS(int posX, int posY);     
+DrawFPS: $[posX :cint32, posY :cint32][
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :cvoid
+        'DrawFPS @[posX posY]
+]
+
+
+;InitWindow to :cint32 [800] to :cint32 [450] to :cstring ["Basic Window from arturo"]
+;SetTargetFPS to :cint32 [60]
+
+
+;if [ IsWindowReady = 1] [
+    ;print "LOG: Window initalized correctly"
+    ;posX: 50
+    
+    ;result: LoadImage to :cstring ["wizard.png"]
+    ;my_image: to :Image [to :cpointer [result\0]  to :cint32 [result\1] to :cint32 [result\2] to :cint32 [result\3] to :cint32 [result\4] ]
+    
+    ;result: LoadTexture to :cstring ["wizard.png"]
+    ;my_texture: to :Texture [ to :cuint32 [result\0] to :cint32 [result\1] to :cint32 [result\2] to :cint32 [result\3] to :cint32 [result\4] ]
+    ;print my_texture
+    ;print IsTextureReady my_texture
+
+    ;while [ WindowShouldClose = 0 ] [
+    ;    BeginDrawing
+    ;        ClearBackground RAYWHITE
+    ;        DrawFPS to :cint32[20] to :cint32[20]
+            ;DrawCircle to :cint32 [posX] to :cint32 [50] to :cfloat [50.0] fontcolor
+            ;DrawText to :cstring ["Hello in raylib from Arturo! Press Q to Quit"] to :cint32 [190] to :cint32 [200] to :cint32 [20] fontcolor
+    ;        print my_texture
+DrawTexture: $[texture :Texture, posX :cint32, posY :cint, tint :rayColor] [
+    print [texture posX posY tint]
+;call .external: "/usr/lib/libraylib.so"
+;    .expect: :cvoid
+;    'DrawTexture @[texture posX posY tint]
+]
+
+my_texture: to :Texture[ to :cuint32[3] to :cint32[855] to :cint32[855] to :cint32[4] to :cint32[1]]
+print my_texture
+DrawTexture my_texture to :cint32[100] to :cint32[100] WHITE
+
+    ;    EndDrawing
+        
+    ;    if (IsKeyPressed KEY_Q) = 1 -> break
+    ;]
+    
+    ;UnloadImage my_image
+    ;UnloadTexture my_texture
+
+    ;CloseWindow
 ;]
-;DoWhatever: $[poop :integer] -> print poop
-
-InitWindow to :cint32 [800] to :cint32 [450] to :cstring ["Basic Window from arturo"]
-SetTargetFPS to :cint32 [60]
-
-
-backgroundcolor: to :rayColor [ to :cuint8 [245] to :cuint8 [245] to :cuint8 [245] to :cuint8 [255]]
-fontcolor: to :rayColor [ to :cuint8 [120] to :cuint8 [120] to :cuint8 [120] to :cuint8 [255]]
-
-if? [ IsWindowReady == 1] [
-    print "LOG: Window initalized correctly"
-    posX: 50
-    while [ WindowShouldClose == 0 ] [
-        BeginDrawing
-
-            ClearBackground backgroundcolor
-            DrawCircle to :cint32 [posX] to :cint32 [50] to :cfloat [50.0] fontcolor
-            DrawText to :cstring ["Hello in raylib from Arturo! Press Q to Quit"] to :cint32 [190] to :cint32 [200] to :cint32 [20] fontcolor
-        
-        EndDrawing
-        if (IsKeyDown KEY_SPACE) = 1 -> posX: posX + 2
-        
-        close_window: IsKeyPressed KEY_Q
-        if close_window = 1 -> break
-    ]
-    CloseWindow
-]
-
-else [
-    print "WARN: Something went wrong"
-]
-
-        ;print IsKeyPressed to :cint32 [81]
-        ;DrawText to :cstring ["Hello in raylib from Arturo!"] to :cint32 [190] to :cint32 [200] to :cint32 [20] fontcolor
-
-;int main(void)
-;{
-;    InitWindow(800, 450, "raylib [core] example - basic window");
-;
-;    while (!WindowShouldClose())
-;    {
-;        BeginDrawing();
-;            ClearBackground(RAYWHITE);
-;            DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
-;        EndDrawing();
-;    }
-;
-;    CloseWindow();
-;
-;    return 0;
-;}
-
