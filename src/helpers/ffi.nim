@@ -147,9 +147,6 @@ when not defined(WEB):
                                 else:
                                     echo "Unimplemented! ", type_name
                         else:
-                            if type_name.len == 0:
-                                echo "WROOOONG"
-                            echo type_name
                             var 
                                 buffer : array[0..63, uint8] # Fake 64byte struct
                                 idx = 0
@@ -161,7 +158,6 @@ when not defined(WEB):
                             var j = 0
                             for value in p.o.values:
                                 if value.kind != Method:
-                                    echo "YES"
                             # ------- Defining struct layout and type
                                     let size = returnTypeSize(value.proto.name)
                                     types[value.proto.name] = size
@@ -180,9 +176,6 @@ when not defined(WEB):
                                     turnIntoStruct(value,buffer,idx)
                                     idx += size
                             
-                            echo buffer
-                            echo elements_buf.repr
-
                             struct_values.add(buffer)
                             args[i] = struct_values[struct_values.high].addr
                             

@@ -271,7 +271,7 @@ CloseWindow: $[ ] [
         'CloseWindow @[]
 ]
 WindowShouldClose: $[ ] [
-    call .external: "/usr/lib/libraylib.so" ;"/home/mihau/projects/arturo_experiments/arturo/arturolib.so"
+    call .external: "/usr/lib/libraylib.so" 
         .expect:   :cuint8
         'WindowShouldClose @[]
 ]
@@ -318,21 +318,21 @@ GetScreenWidth: $[] [
 ]
 
 IsWindowReady: $[ ] [
-    call .external: "/usr/lib/libraylib.so" ;"/home/mihau/projects/arturo_experiments/arturo/arturolib.so"
+    call .external: "/usr/lib/libraylib.so"
         .expect:   :cuint8
         'IsWindowReady @[]
 ]
 GetRandomValue: $[ min :cint32 , max :cint32 ] [
-    call .external: "/usr/lib/libraylib.so" ;"/home/mihau/projects/arturo_experiments/arturo/arturolib.so"
+    call .external: "/usr/lib/libraylib.so" 
         .expect:   :cint32
         'GetRandomValue @[min max]
 ]
 SetTargetFPS: $[ fps :cint32 ] [
-    call .external: "/usr/lib/libraylib.so" ;"/home/mihau/projects/arturo_experiments/arturo/arturolib.so"
+    call .external: "/usr/lib/libraylib.so" 
         .expect:   :cvoid
         'SetTargetFPS @[fps]
 ]
-;void DrawCircle(int centerX, int centerY, float radius, Color color);  
+
 DrawCircle: $[ centerX :cint32, centerY :cint32, radius :cfloat, color :rayColor ] [
     call .external: "/usr/lib/libraylib.so"
         .expect: :cvoid
@@ -356,7 +356,7 @@ IsKeyPressedRepeat: $[ key :cint32 ][
         .expect: :cuint8
         'IsKeyPressedRepeat @[key]
 ]
-;void SetTraceLogLevel(int logLevel); 
+
 SetTraceLogLevel: $[logLevel :cint32] [
     call .external: "/usr/lib/libraylib.so"
         .expect: :cvoid
@@ -397,55 +397,56 @@ IsTextureReady: $[texture :Texture] [
         'IsTextureReady @[texture]
 ]
 
-;void DrawFPS(int posX, int posY);     
 DrawFPS: $[posX :cint32, posY :cint32][
     call .external: "/usr/lib/libraylib.so"
         .expect: :cvoid
         'DrawFPS @[posX posY]
 ]
 
-
-;InitWindow to :cint32 [800] to :cint32 [450] to :cstring ["Basic Window from arturo"]
-;SetTargetFPS to :cint32 [60]
-
-
-;if [ IsWindowReady = 1] [
-    ;print "LOG: Window initalized correctly"
-    ;posX: 50
-    
-    ;result: LoadImage to :cstring ["wizard.png"]
-    ;my_image: to :Image [to :cpointer [result\0]  to :cint32 [result\1] to :cint32 [result\2] to :cint32 [result\3] to :cint32 [result\4] ]
-    
-    ;result: LoadTexture to :cstring ["wizard.png"]
-    ;my_texture: to :Texture [ to :cuint32 [result\0] to :cint32 [result\1] to :cint32 [result\2] to :cint32 [result\3] to :cint32 [result\4] ]
-    ;print my_texture
-    ;print IsTextureReady my_texture
-
-    ;while [ WindowShouldClose = 0 ] [
-    ;    BeginDrawing
-    ;        ClearBackground RAYWHITE
-    ;        DrawFPS to :cint32[20] to :cint32[20]
-            ;DrawCircle to :cint32 [posX] to :cint32 [50] to :cfloat [50.0] fontcolor
-            ;DrawText to :cstring ["Hello in raylib from Arturo! Press Q to Quit"] to :cint32 [190] to :cint32 [200] to :cint32 [20] fontcolor
-    ;        print my_texture
-DrawTexture: $[texture :Texture, posX :cint32, posY :cint, tint :rayColor] [
-    print [texture posX posY tint]
-;call .external: "/usr/lib/libraylib.so"
-;    .expect: :cvoid
-;    'DrawTexture @[texture posX posY tint]
+DrawTexture: $[texture, posX , posY , tint] [
+    ensure [is? :Texture texture]
+    ensure [is? :cint32 posX]
+    ensure [is? :cint32 posY]
+    ensure [is? :rayColor tint]
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :cvoid
+        'DrawTexture @[texture posX posY tint]
+]
+DrawTextureEx: $[texture, position, rotation, scale , tint] [
+    ensure [is? :Texture texture]
+    ensure [is? :Vector2 position]
+    ensure [is? :cfloat rotation]
+    ensure [is? :cfloat scale]
+    ensure [is? :rayColor tint]
+    call .external: "/usr/lib/libraylib.so"
+        .expect: :cvoid
+        'DrawTextureEx @[texture position rotation scale tint]
 ]
 
-my_texture: to :Texture[ to :cuint32[3] to :cint32[855] to :cint32[855] to :cint32[4] to :cint32[1]]
-print my_texture
-DrawTexture my_texture to :cint32[100] to :cint32[100] WHITE
+InitWindow to :cint32 [800] to :cint32 [650] to :cstring ["Basic Window from arturo"]
+SetTargetFPS to :cint32 [60]
 
-    ;    EndDrawing
+
+if [ IsWindowReady = 1] [
+    print "LOG: Window initalized correctly"
+
+    result: LoadTexture to :cstring ["cat_bitmap.png"]
+    my_texture: to :Texture [ to :cuint32 [result\0] to :cint32 [result\1] to :cint32 [result\2] to :cint32 [result\3] to :cint32 [result\4] ]
+
+    cat_position: to :Vector2 [ to :cfloat[400.0] to :cfloat[325.0]]
+
+    while [ WindowShouldClose = 0 ] [
+        BeginDrawing
+            ClearBackground RAYWHITE
+            DrawFPS to :cint32[20] to :cint32[20]
+            rotation: GetTime * 100
+            DrawTextureEx my_texture cat_position to :cfloat[ rotation % 360  ] to :cfloat[5.0] WHITE 
+        EndDrawing
         
-    ;    if (IsKeyPressed KEY_Q) = 1 -> break
-    ;]
+        if (IsKeyPressed KEY_Q) = 1 -> break
+    ]
     
-    ;UnloadImage my_image
-    ;UnloadTexture my_texture
+    UnloadTexture my_texture
 
-    ;CloseWindow
-;]
+    CloseWindow
+]

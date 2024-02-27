@@ -130,7 +130,7 @@ proc defineLibrary*() =
         },
         attrs       = {
             "external"  : ({String},"path to external library"),
-            "expect"    : ({Type},"expect given return type")
+            "expect"    : ({Type,Block},"expect given return type")
         },
         returns     = {Any},
         example     = """
