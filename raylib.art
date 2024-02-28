@@ -105,52 +105,71 @@ define :cstring   [ ; TODO artithmetrics with checking for negative values
 
 define :cvoid    [ ] 
 
-define :Vector2 [x :cfloat, y :cfloat]
-define :rayColor [r :cuint8, g :cuint8, b :cuint8, a :cuint8]
+define :Vector2 [
+    init: method [b :block][
+        ensure [(size b) = 2]
+        this\x:   (is? :cfloat b\0)? -> b\0 -> to :cfloat [b\0]
+        this\y:   (is? :cfloat b\1)? -> b\1 -> to :cfloat [b\1]
+    ]
+]
+define :rayColor [
+    init: method [b :block][
+        ensure [(size b) = 4]
+        this\r:   (is? :cuint8 b\0)? -> b\0 -> to :cuint8  [b\0]
+        this\g:   (is? :cuint8 b\1)? -> b\1 -> to :cuint8  [b\1]
+        this\b:   (is? :cuint8 b\2)? -> b\2 -> to :cuint8  [b\2]
+        this\a:   (is? :cuint8 b\3)? -> b\3 -> to :cuint8  [b\3]
+    ]
+]
 
-    
 define :Image [
-    data :cpointer,
-    width :cint32,
-    height :cint32,
-    mipmaps :cint32,
-    format :cint32
+    init: method [b :block][
+        ensure [(size b) = 5]
+        this\data:    (is? :cpointer b\0)? -> b\0 -> to :cpointer [b\0]
+        this\width:   (is? :cint32 b\1)? ->  b\1 -> to :cint32  [b\1]
+        this\height:  (is? :cint32 b\2)? ->  b\2 -> to :cint32  [b\2]
+        this\mipmaps: (is? :cint32 b\3)? ->  b\3 -> to :cint32  [b\3]
+        this\format:  (is? :cint32 b\4)? ->  b\4 -> to :cint32  [b\4]
+    ]
 ] 
 
 define :Texture [
-    id :cuint32,
-    width :cint32,
-    height :cint32,
-    mipmaps :cint32,
-    format :cint32,
+    init: method [b :block][
+        ensure [(size b) = 5]
+        this\id:      (is? :cuint32 b\0)? -> b\0 -> to :cuint32 [b\0]
+        this\width:   (is? :cint32 b\1)? ->  b\1 -> to :cint32  [b\1]
+        this\height:  (is? :cint32 b\2)? ->  b\2 -> to :cint32  [b\2]
+        this\mipmaps: (is? :cint32 b\3)? ->  b\3 -> to :cint32  [b\3]
+        this\format:  (is? :cint32 b\4)? ->  b\4 -> to :cint32  [b\4]
+     ]
 ]
 
-LIGHTGRAY:  to :rayColor  [ to :cuint8[200] to :cuint8 [200] to :cuint8 [200] to :cuint8 [255] ]   
-GRAY:       to :rayColor  [ to :cuint8[130] to :cuint8 [130] to :cuint8 [130] to :cuint8 [255] ]   
-DARKGRAY:   to :rayColor  [ to :cuint8[80]  to :cuint8 [80]  to :cuint8 [80]  to :cuint8 [255] ]      
-YELLOW:     to :rayColor  [ to :cuint8[253] to :cuint8 [249] to :cuint8 [0]   to :cuint8 [255] ]     
-GOLD:       to :rayColor  [ to :cuint8[255] to :cuint8 [203] to :cuint8 [0]   to :cuint8 [255] ]     
-ORANGE:     to :rayColor  [ to :cuint8[255] to :cuint8 [161] to :cuint8 [0]   to :cuint8 [255] ]     
-PINK:       to :rayColor  [ to :cuint8[255] to :cuint8 [109] to :cuint8 [194] to :cuint8 [255] ]   
-RED:        to :rayColor  [ to :cuint8[230] to :cuint8 [41]  to :cuint8 [55]  to :cuint8 [255] ]     
-MAROON:     to :rayColor  [ to :cuint8[190] to :cuint8 [33]  to :cuint8 [55]  to :cuint8 [255] ]     
-GREEN:      to :rayColor  [ to :cuint8[0]   to :cuint8 [228] to :cuint8 [48]  to :cuint8 [255] ]      
-LIME:       to :rayColor  [ to :cuint8[0]   to :cuint8 [158] to :cuint8 [47]  to :cuint8 [255] ]      
-DARKGREEN:  to :rayColor  [ to :cuint8[0]   to :cuint8 [117] to :cuint8 [44]  to :cuint8 [255] ]      
-SKYBLUE:    to :rayColor  [ to :cuint8[102] to :cuint8 [191] to :cuint8 [255] to :cuint8 [255] ]   
-BLUE:       to :rayColor  [ to :cuint8[0]   to :cuint8 [121] to :cuint8 [241] to :cuint8 [255] ]     
-DARKBLUE:   to :rayColor  [ to :cuint8[0]   to :cuint8 [82]  to :cuint8 [172] to :cuint8 [255] ]      
-PURPLE:     to :rayColor  [ to :cuint8[200] to :cuint8 [122] to :cuint8 [255] to :cuint8 [255] ]   
-VIOLET:     to :rayColor  [ to :cuint8[135] to :cuint8 [60]  to :cuint8 [190] to :cuint8 [255] ]    
-DARKPURPLE: to :rayColor  [ to :cuint8[112] to :cuint8 [31]  to :cuint8 [126] to :cuint8 [255] ]    
-BEIGE:      to :rayColor  [ to :cuint8[211] to :cuint8 [176] to :cuint8 [131] to :cuint8 [255] ]   
-BROWN:      to :rayColor  [ to :cuint8[127] to :cuint8 [106] to :cuint8 [79]  to :cuint8 [255] ]    
-DARKBROWN:  to :rayColor  [ to :cuint8[76]  to :cuint8 [63]  to :cuint8 [47]  to :cuint8 [255] ]      
-WHITE:      to :rayColor  [ to :cuint8[255] to :cuint8 [255] to :cuint8 [255] to :cuint8 [255] ]   
-BLACK:      to :rayColor  [ to :cuint8[0]   to :cuint8 [0]   to :cuint8 [0]   to :cuint8 [255] ]         
-BLANK:      to :rayColor  [ to :cuint8[0]   to :cuint8 [0]   to :cuint8 [0]   to :cuint8 [0]   ]           
-MAGENTA:    to :rayColor  [ to :cuint8[255] to :cuint8 [0]   to :cuint8 [255] to :cuint8 [255] ]     
-RAYWHITE:   to :rayColor  [ to :cuint8[245] to :cuint8 [245] to :cuint8 [245] to :cuint8 [255] ]   
+LIGHTGRAY:  to :rayColor  [[ 200 200 200 255 ]]   
+GRAY:       to :rayColor  [[ 130 130 130 255 ]]   
+DARKGRAY:   to :rayColor  [[ 80  80  80  255 ]]      
+YELLOW:     to :rayColor  [[ 253 249 0   255 ]]     
+GOLD:       to :rayColor  [[ 255 203 0   255 ]]     
+ORANGE:     to :rayColor  [[ 255 161 0   255 ]]     
+PINK:       to :rayColor  [[ 255 109 194 255 ]]   
+RED:        to :rayColor  [[ 230 41  55  255 ]]     
+MAROON:     to :rayColor  [[ 190 33  55  255 ]]     
+GREEN:      to :rayColor  [[ 0   228 48  255 ]]      
+LIME:       to :rayColor  [[ 0   158 47  255 ]]      
+DARKGREEN:  to :rayColor  [[ 0   117 44  255 ]]      
+SKYBLUE:    to :rayColor  [[ 102 191 255 255 ]]   
+BLUE:       to :rayColor  [[ 0   121 241 255 ]]     
+DARKBLUE:   to :rayColor  [[ 0   82  172 255 ]]      
+PURPLE:     to :rayColor  [[ 200 122 255 255 ]]   
+VIOLET:     to :rayColor  [[ 135 60  190 255 ]]    
+DARKPURPLE: to :rayColor  [[ 112 31  126 255 ]]    
+BEIGE:      to :rayColor  [[ 211 176 131 255 ]]   
+BROWN:      to :rayColor  [[ 127 106 79  255 ]]    
+DARKBROWN:  to :rayColor  [[ 76  63  47  255 ]]      
+WHITE:      to :rayColor  [[ 255 255 255 255 ]]   
+BLACK:      to :rayColor  [[ 0   0   0   255 ]]         
+BLANK:      to :rayColor  [[ 0   0   0   0   ]]           
+MAGENTA:    to :rayColor  [[ 255 0   255 255 ]]     
+RAYWHITE:   to :rayColor  [[ 245 245 245 255 ]]   
 
 KEY_NULL:           to :cint32 [0]
 KEY_APOSTROPHE:     to :cint32 [39]
@@ -423,6 +442,7 @@ DrawTextureEx: $[texture, position, rotation, scale , tint] [
         'DrawTextureEx @[texture position rotation scale tint]
 ]
 
+
 InitWindow to :cint32 [800] to :cint32 [650] to :cstring ["Basic Window from arturo"]
 SetTargetFPS to :cint32 [60]
 
@@ -430,10 +450,9 @@ SetTargetFPS to :cint32 [60]
 if [ IsWindowReady = 1] [
     print "LOG: Window initalized correctly"
 
-    result: LoadTexture to :cstring ["cat_bitmap.png"]
-    my_texture: to :Texture [ to :cuint32 [result\0] to :cint32 [result\1] to :cint32 [result\2] to :cint32 [result\3] to :cint32 [result\4] ]
+    my_texture: to :Texture [LoadTexture to :cstring ["cat_bitmap.png"]]
 
-    cat_position: to :Vector2 [ to :cfloat[400.0] to :cfloat[325.0]]
+    cat_position: to :Vector2 [[ 400.0 325.0 ]]
 
     while [ WindowShouldClose = 0 ] [
         BeginDrawing
