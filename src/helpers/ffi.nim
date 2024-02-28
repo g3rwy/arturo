@@ -383,15 +383,16 @@ when not defined(WEB):
                         
                         #echo "name: ", return_type.name
                         #echo "params: ", return_type.content["init"].mparams
-                        #for v in return_type.content["init"].mmain.a:
-                        #    if v.kind == types.Type:
-                        #        echo "type: ", v.tid
+                        #echo "this: ", return_type.content.pairs
+                        #for k,v in return_type.content.pairs:
+                        #    if v.kind != Method:
+                        #        echo "k: ",k
+                        #        echo "v: ",v.proto.name
 
-                        for f in return_type.content["init"].mmain.a:
-                            # Should be fine for now but in future need to check what types does the prototype's fields receive (shouldn't be ambigious) 
-                            if f.kind == types.Type:
-                                if f.tid in CTypes: # TODO Currently no support for structs inside structs
-                                    let typ = f.tid
+                        for f in return_type.content.values:
+                            if f.kind == Object:
+                                if f.proto.name in CTypes: # TODO Currently no support for structs inside structs
+                                    let typ = f.proto.name
                                     let size = returnTypeSize(typ)
                                     return_struct_fields.add(typ)
 

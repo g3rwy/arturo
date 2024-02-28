@@ -86,7 +86,7 @@ define :cuint8   [ ; TODO artithmetrics with checking for negative values
     string:   method []-> to :string this\value
 ]
 
-define :cpointer   [
+define :cpointer  [
     init: method [ x :integer ][ this\value: x ]
     ;                     if pointer's value is not 0, it will output it's value, otherwise null
     integer:  method []-> (this\value <> 0)? -> this\value -> null
@@ -95,7 +95,7 @@ define :cpointer   [
     string:   method []-> to :string this\value
 ]
 
-define :cstring   [ ; TODO artithmetrics with checking for negative values
+define :cstring  [ ; TODO artithmetrics with checking for negative values
     init: method [ x :string ][ this\value: x ]
     integer:  method []-> to :integer this\value
     floating: method []-> to :floating this\value
@@ -106,6 +106,9 @@ define :cstring   [ ; TODO artithmetrics with checking for negative values
 define :cvoid    [ ] 
 
 define :Vector2 [
+    x: to :cfloat[0.0]
+    y: to :cfloat[0.0]
+
     init: method [b :block][
         ensure [(size b) = 2]
         this\x:   (is? :cfloat b\0)? -> b\0 -> to :cfloat [b\0]
@@ -113,6 +116,11 @@ define :Vector2 [
     ]
 ]
 define :rayColor [
+    r: to :cuint8[0]
+    g: to :cuint8[0]
+    b: to :cuint8[0]
+    a: to :cuint8[0]
+
     init: method [b :block][
         ensure [(size b) = 4]
         this\r:   (is? :cuint8 b\0)? -> b\0 -> to :cuint8  [b\0]
@@ -123,25 +131,36 @@ define :rayColor [
 ]
 
 define :Image [
+    id:        to :cpointer [0]
+    width:     to :cint32   [0]
+    height:    to :cint32   [0]
+    mipmaps:   to :cint32   [0]
+    format:    to :cint32   [0]
     init: method [b :block][
         ensure [(size b) = 5]
-        this\data:    (is? :cpointer b\0)? -> b\0 -> to :cpointer [b\0]
-        this\width:   (is? :cint32 b\1)? ->  b\1 -> to :cint32  [b\1]
-        this\height:  (is? :cint32 b\2)? ->  b\2 -> to :cint32  [b\2]
-        this\mipmaps: (is? :cint32 b\3)? ->  b\3 -> to :cint32  [b\3]
-        this\format:  (is? :cint32 b\4)? ->  b\4 -> to :cint32  [b\4]
+        this\data:    (is? :cpointer b\0)? ->  b\0 -> to :cpointer[b\0]
+        this\width:   (is? :cint32 b\1)?   ->  b\1 -> to :cint32  [b\1]
+        this\height:  (is? :cint32 b\2)?   ->  b\2 -> to :cint32  [b\2]
+        this\mipmaps: (is? :cint32 b\3)?   ->  b\3 -> to :cint32  [b\3]
+        this\format:  (is? :cint32 b\4)?   ->  b\4 -> to :cint32  [b\4]
     ]
 ] 
 
 define :Texture [
+    id:        to :cuint32 [0]
+    width:     to :cint32  [0]
+    height:    to :cint32  [0]
+    mipmaps:   to :cint32  [0]
+    format:    to :cint32  [0]
+    
     init: method [b :block][
         ensure [(size b) = 5]
-        this\id:      (is? :cuint32 b\0)? -> b\0 -> to :cuint32 [b\0]
-        this\width:   (is? :cint32 b\1)? ->  b\1 -> to :cint32  [b\1]
-        this\height:  (is? :cint32 b\2)? ->  b\2 -> to :cint32  [b\2]
-        this\mipmaps: (is? :cint32 b\3)? ->  b\3 -> to :cint32  [b\3]
-        this\format:  (is? :cint32 b\4)? ->  b\4 -> to :cint32  [b\4]
-     ]
+        this\id:      (is? :cuint32 b\0)? ->  b\0 -> to :cuint32 [b\0]
+        this\width:   (is? :cint32 b\1)?  ->  b\1 -> to :cint32  [b\1]
+        this\height:  (is? :cint32 b\2)?  ->  b\2 -> to :cint32  [b\2]
+        this\mipmaps: (is? :cint32 b\3)?  ->  b\3 -> to :cint32  [b\3]
+        this\format:  (is? :cint32 b\4)?  ->  b\4 -> to :cint32  [b\4]
+    ]
 ]
 
 LIGHTGRAY:  to :rayColor  [[ 200 200 200 255 ]]   
@@ -446,10 +465,8 @@ DrawTextureEx: $[texture, position, rotation, scale , tint] [
 InitWindow to :cint32 [800] to :cint32 [650] to :cstring ["Basic Window from arturo"]
 SetTargetFPS to :cint32 [60]
 
-
 if [ IsWindowReady = 1] [
     print "LOG: Window initalized correctly"
-
     my_texture: to :Texture [LoadTexture to :cstring ["cat_bitmap.png"]]
 
     cat_position: to :Vector2 [[ 400.0 325.0 ]]
